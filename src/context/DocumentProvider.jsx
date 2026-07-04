@@ -1,14 +1,15 @@
 import { createContext, useMemo, useReducer } from 'react';
 import {
-  approveDocument,
-  rejectDocument,
-  uploadDocument,
+  approveVerification,
+  rejectVerification,
+  requestVerification,
+  requestMoreInformation,
 } from './documentActions.js';
 import { documentReducer } from './documentReducer.js';
 import { createInitialDocumentState } from './initialState.js';
 
-export const DocumentStateContext = createContext(null);
-export const DocumentDispatchContext = createContext(null);
+export const VerificationStateContext = createContext(null);
+export const VerificationDispatchContext = createContext(null);
 
 export function DocumentProvider({ children }) {
   const [state, dispatch] = useReducer(
@@ -19,18 +20,19 @@ export function DocumentProvider({ children }) {
 
   const actions = useMemo(
     () => ({
-      uploadDocument: (payload) => dispatch(uploadDocument(payload)),
-      approveDocument: (documentId) => dispatch(approveDocument(documentId)),
-      rejectDocument: (documentId) => dispatch(rejectDocument(documentId)),
+      requestVerification: (payload) => dispatch(requestVerification(payload)),
+      approveVerification: (verificationId) => dispatch(approveVerification(verificationId)),
+      rejectVerification: (verificationId) => dispatch(rejectVerification(verificationId)),
+      requestMoreInformation: (verificationId) => dispatch(requestMoreInformation(verificationId)),
     }),
     [dispatch],
   );
 
   return (
-    <DocumentStateContext.Provider value={state}>
-      <DocumentDispatchContext.Provider value={actions}>
+    <VerificationStateContext.Provider value={state}>
+      <VerificationDispatchContext.Provider value={actions}>
         {children}
-      </DocumentDispatchContext.Provider>
-    </DocumentStateContext.Provider>
+      </VerificationDispatchContext.Provider>
+    </VerificationStateContext.Provider>
   );
 }

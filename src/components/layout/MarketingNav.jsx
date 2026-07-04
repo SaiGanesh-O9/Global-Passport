@@ -17,7 +17,7 @@ export default function MarketingNav() {
           <span className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-700 text-white">
             <FileCheck2 className="h-5 w-5" />
           </span>
-          VerifyOnce
+          VeriFlash
         </Link>
 
         <div className="order-3 flex w-full flex-wrap gap-3 text-sm font-semibold text-slate-600 md:order-2 md:w-auto md:items-center md:gap-6">

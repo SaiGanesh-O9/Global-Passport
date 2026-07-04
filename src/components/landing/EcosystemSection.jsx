@@ -25,23 +25,25 @@ const ecosystemCards = [
   {
     title: 'Employers & Banks',
     description:
-      'Instantly verify documents using secure shared verification links instead of repeated uploads.',
+      'Instantly verify credentials using secure shared verification links instead of repeated uploads.',
     icon: ShieldCheck,
   },
   {
     title: 'AI Assisted Verification',
     description:
-      'AI extracts document information, routes requests to the appropriate institution and helps reviewers complete verification faster.',
+      'AI extracts request details, routes requests to the issuing organization and helps reviewers complete verification faster.',
     icon: Sparkles,
   },
 ];
 
 const networkNodes = [
   'Universities',
-  'Government Platforms',
-  'Trusted Employers',
-  'Verified Credentials',
-  'Users',
+  'Hospitals',
+  'Banks',
+  'Employers',
+  'Government',
+  'Insurance',
+  'Certification Authorities',
 ];
 
 function EcosystemFeatureCard({ description, icon, title }) {
@@ -83,7 +85,7 @@ function NetworkCard({ children, highlighted = false }) {
   if (highlighted) {
     return (
       <div className="rounded-lg border border-blue-300 bg-blue-700 p-6 text-center text-white shadow-2xl shadow-blue-500/30 ring-4 ring-blue-100">
-        <p className="text-2xl font-black tracking-wide">VERIFYONCE</p>
+        <p className="text-2xl font-black tracking-wide">VERIFLASH</p>
         <p className="mt-2 text-sm font-semibold text-blue-100">
           Universal Verification Layer
         </p>
@@ -116,7 +118,7 @@ function NetworkDiagram() {
         {networkNodes.slice(3).map((node, index) => (
           <div key={node}>
             <NetworkCard>{node}</NetworkCard>
-            {index < 1 ? <NetworkArrow /> : null}
+            {index < networkNodes.slice(3).length - 1 ? <NetworkArrow /> : null}
           </div>
         ))}
       </div>
@@ -129,10 +131,10 @@ function DifferenceBanner() {
     <div className="rounded-lg bg-blue-700 p-6 text-white shadow-xl shadow-blue-700/20">
       <h3 className="text-xl font-bold">Why is this different?</h3>
       <div className="mt-3 space-y-3 text-sm leading-6 text-blue-50">
-        <p>Existing platforms primarily focus on storing or issuing documents.</p>
+        <p>Existing platforms primarily focus on storing or issuing credentials.</p>
         <p>
-          VerifyOnce focuses on reusable verification, allowing trusted
-          institutions to verify once and enabling authorized organizations to
+          VeriFlash focuses on reusable verification, allowing trusted
+          organizations to verify once and enabling authorized organizations to
           reuse that verification securely through one interoperable network.
         </p>
       </div>
@@ -146,11 +148,11 @@ export default function EcosystemSection() {
       <div className="mx-auto max-w-7xl">
         <SectionHeader
           eyebrow="Built to connect"
-          title="Works With Existing Ecosystems"
+          title="Trusted Verification Network"
         >
-          VerifyOnce is not a replacement for existing document platforms. It is
+          VeriFlash is not a replacement for existing credential platforms. It is
           built to act as a universal verification and interoperability layer
-          that can connect trusted institutions, document repositories,
+          that can connect trusted institutions, repositories,
           employers, banks and government systems into one seamless verification
           network.
         </SectionHeader>
@@ -164,8 +166,8 @@ export default function EcosystemSection() {
               Designed for Integration
             </h3>
             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
-              VerifyOnce is designed for integration with trusted institutions
-              and existing document ecosystems through secure APIs and
+              VeriFlash is designed for integration with trusted organizations
+              and existing credential ecosystems through secure APIs and
               standardized verification workflows. It can help organizations
               eliminate repeated verification while preserving the authority of
               the original issuer.

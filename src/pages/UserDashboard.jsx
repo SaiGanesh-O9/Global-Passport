@@ -8,7 +8,7 @@ import Card from '../components/ui/Card.jsx';
 
 const userNavItems = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
-  { label: 'My Documents', to: '/dashboard', icon: FileText },
+  { label: 'Verification Requests', to: '/dashboard', icon: FileText },
   { label: 'Shared Links', to: '/verify', icon: Link2 },
   { label: 'Settings', to: '/dashboard', icon: Settings },
 ];
@@ -19,7 +19,7 @@ export default function UserDashboard() {
   return (
     <SidebarLayout
       navItems={userNavItems}
-      subtitle="Manage documents and share verified credentials."
+      subtitle="Manage verification requests and share verified credentials."
       title="User Dashboard"
     >
       <div className="space-y-6">
@@ -28,15 +28,15 @@ export default function UserDashboard() {
             <div>
               <p className="text-sm font-bold uppercase text-blue-700">Welcome</p>
               <h1 className="mt-2 text-3xl font-bold text-slate-950">
-                Manage your verified documents
+                Manage your verification requests
               </h1>
               <p className="mt-3 max-w-2xl text-slate-600">
-                Upload documents once, track review status, and reuse verified
+                Submit verification requests once, track review status, and reuse verified
                 credentials whenever you need them.
               </p>
             </div>
             <Button icon={Upload} onClick={() => setIsUploadModalOpen(true)}>
-              Upload New Document
+              Request Verification
             </Button>
           </div>
         </Card>

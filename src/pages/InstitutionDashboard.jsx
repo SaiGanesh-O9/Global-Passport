@@ -6,7 +6,7 @@ import { useDocuments } from '../hooks/useDocuments.js';
 
 const institutionNavItems = [
   { label: 'Pending Requests', to: '/institution', icon: ClipboardList },
-  { label: 'Verified Documents', to: '/institution', icon: BadgeCheck },
+  { label: 'Approved Verifications', to: '/institution', icon: BadgeCheck },
   { label: 'Rejected', to: '/institution', icon: XCircle },
   { label: 'Analytics', to: '/institution', icon: BarChart3 },
 ];
@@ -16,20 +16,20 @@ export default function InstitutionDashboard() {
 
   const metricCards = [
     { label: 'Pending', value: String(metrics.pending) },
-    { label: 'Verified', value: String(metrics.verified) },
+    { label: 'Approved', value: String(metrics.approved) },
     { label: 'Rejected', value: String(metrics.rejected) },
   ];
 
   return (
     <SidebarLayout
       navItems={institutionNavItems}
-      subtitle="Review document requests from students and users."
-      title="Institution Dashboard"
+      subtitle="Review verification requests from students and users."
+      title="Organization Verification Center"
     >
       <div className="space-y-6">
         <div>
           <p className="text-sm font-bold uppercase text-blue-700">
-            Institution Workspace
+            Organization Verification Center
           </p>
           <h1 className="mt-2 text-3xl font-bold text-slate-950">
             Review verification requests

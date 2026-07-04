@@ -13,26 +13,23 @@ export default function HeroSection() {
       <div className="mx-auto grid min-h-[calc(100vh-78px)] max-w-7xl items-center gap-12 px-5 py-16 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
         <div>
           <p className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700">
-            Sprint 1 frontend prototype
+            VeriFlash Prototype
           </p>
           <h1 className="mt-6 text-5xl font-bold leading-tight text-slate-950 sm:text-6xl lg:text-7xl">
-            Upload Once.
-            <br />
-            Verify Once.
-            <br />
-            Share Anywhere.
+            VeriFlash
           </h1>
+          <p className="mt-2 text-2xl font-bold text-blue-700 sm:text-3xl">
+            Verify Once. Trust Everywhere.
+          </p>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
-            Trusted institutions verify documents once so users can securely
-            reuse verified credentials across employers, universities, banks and
-            government agencies.
+            VeriFlash is a Universal Verification Network that connects trusted organizations—including universities, hospitals, employers, banks, insurers and government agencies—to verify credentials at the source and securely reuse trusted verification across organizations.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button icon={ArrowRight} to="/dashboard">
-              Get Started
+              Request Verification
             </Button>
             <Button href="#how-it-works" variant="secondary">
-              Learn More
+              Explore Platform
             </Button>
           </div>
         </div>
@@ -76,7 +73,7 @@ export default function HeroSection() {
               Share link ready
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              verified.once/credential/8f42
+              veriflash.net/credential/8f42
             </p>
           </div>
         </div>

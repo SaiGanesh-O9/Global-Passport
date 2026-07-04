@@ -1,8 +1,8 @@
 import { useContext } from 'react';
-import { DocumentDispatchContext } from '../context/DocumentProvider.jsx';
+import { VerificationDispatchContext } from '../context/DocumentProvider.jsx';
 
 export function useDocumentActions() {
-  const actions = useContext(DocumentDispatchContext);
+  const actions = useContext(VerificationDispatchContext);
 
   if (!actions) {
     throw new Error('useDocumentActions must be used within a DocumentProvider');

@@ -3,10 +3,10 @@ import Card from '../ui/Card.jsx';
 import SectionHeader from '../ui/SectionHeader.jsx';
 
 const steps = [
-  { label: 'Upload Document', icon: FileUp },
-  { label: 'Institution Reviews', icon: Building2 },
-  { label: 'Verified Credential', icon: BadgeCheck },
-  { label: 'Share Secure Link', icon: Link2 },
+  { label: 'Submit Verification Request', icon: FileUp },
+  { label: 'Organization Reviews Request', icon: Building2 },
+  { label: 'Verification Approved', icon: BadgeCheck },
+  { label: 'Share Trusted Verification', icon: Link2 },
 ];
 
 export default function HowItWorks() {

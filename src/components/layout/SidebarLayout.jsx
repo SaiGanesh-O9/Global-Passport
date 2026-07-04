@@ -10,7 +10,7 @@ export default function SidebarLayout({ children, navItems, subtitle, title }) {
             <span className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-700 text-white">
               <FileCheck2 className="h-5 w-5" />
             </span>
-            VerifyOnce
+            VeriFlash
           </NavLink>
 
           <div className="mt-8">
@@ -36,6 +36,15 @@ export default function SidebarLayout({ children, navItems, subtitle, title }) {
               </NavLink>
             ))}
           </nav>
+
+          <div className="mt-8 border-t border-slate-200 pt-6">
+            <NavLink
+              to={title === 'User Dashboard' ? '/institution' : '/dashboard'}
+              className="flex items-center gap-3 rounded-md px-4 py-3 text-sm font-bold text-blue-700 bg-blue-50/50 hover:bg-blue-50 transition"
+            >
+              {title === 'User Dashboard' ? 'Switch to Organization Center' : 'Switch to User Dashboard'}
+            </NavLink>
+          </div>
         </aside>
 
         <main className="flex-1 px-5 py-8 sm:px-6 lg:px-8">{children}</main>

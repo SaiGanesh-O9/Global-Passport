@@ -1,26 +1,34 @@
-export const DOCUMENT_ACTION_TYPES = {
-  UPLOAD_DOCUMENT: 'UPLOAD_DOCUMENT',
-  APPROVE_DOCUMENT: 'APPROVE_DOCUMENT',
-  REJECT_DOCUMENT: 'REJECT_DOCUMENT',
+export const VERIFICATION_ACTION_TYPES = {
+  REQUEST_VERIFICATION: 'REQUEST_VERIFICATION',
+  APPROVE_VERIFICATION: 'APPROVE_VERIFICATION',
+  REJECT_VERIFICATION: 'REJECT_VERIFICATION',
+  REQUEST_MORE_INFORMATION: 'REQUEST_MORE_INFORMATION',
 };
 
-export function uploadDocument(payload) {
+export function requestVerification(payload) {
   return {
-    type: DOCUMENT_ACTION_TYPES.UPLOAD_DOCUMENT,
+    type: VERIFICATION_ACTION_TYPES.REQUEST_VERIFICATION,
     payload,
   };
 }
 
-export function approveDocument(documentId) {
+export function approveVerification(verificationId) {
   return {
-    type: DOCUMENT_ACTION_TYPES.APPROVE_DOCUMENT,
-    payload: { documentId },
+    type: VERIFICATION_ACTION_TYPES.APPROVE_VERIFICATION,
+    payload: { verificationId },
   };
 }
 
-export function rejectDocument(documentId) {
+export function rejectVerification(verificationId) {
   return {
-    type: DOCUMENT_ACTION_TYPES.REJECT_DOCUMENT,
-    payload: { documentId },
+    type: VERIFICATION_ACTION_TYPES.REJECT_VERIFICATION,
+    payload: { verificationId },
+  };
+}
+
+export function requestMoreInformation(verificationId) {
+  return {
+    type: VERIFICATION_ACTION_TYPES.REQUEST_MORE_INFORMATION,
+    payload: { verificationId },
   };
 }

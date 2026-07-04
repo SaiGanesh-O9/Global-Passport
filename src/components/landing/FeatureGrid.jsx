@@ -4,21 +4,21 @@ import SectionHeader from '../ui/SectionHeader.jsx';
 
 const features = [
   {
-    title: 'Trusted Institutions',
+    title: 'Verification Requests',
     description:
-      'Universities, companies, banks and agencies can confirm documents from the original source.',
+      'Request verification directly from trusted organizations instead of repeatedly uploading documents.',
     icon: Building2,
   },
   {
-    title: 'Secure Verification',
+    title: 'Universal Verification Network',
     description:
-      'Each credential carries clear verification details so people can trust the document state.',
+      'Universities, hospitals, employers, banks and government agencies verify credentials directly.',
     icon: ShieldCheck,
   },
   {
-    title: 'Share Anywhere',
+    title: 'Trusted Everywhere',
     description:
-      'Users can reuse verified credentials with employers, universities and services through one secure link.',
+      'Once verified, authorized organizations can securely reuse trusted verification.',
     icon: Link2,
   },
 ];
@@ -28,7 +28,7 @@ export default function FeatureGrid() {
     <section className="bg-slate-50 px-5 py-20 sm:px-6 lg:px-8" id="features">
       <div className="mx-auto max-w-7xl">
         <SectionHeader eyebrow="Features" title="Trust that travels with the user">
-          VerifyOnce keeps the first version simple, professional and ready for a
+          VeriFlash keeps the first version simple, professional and ready for a
           hackathon demo.
         </SectionHeader>
 

@@ -1,22 +1,27 @@
 export const MOCK_USER = 'Demo User';
 
-export const DOCUMENT_STATUS = {
+export const VERIFICATION_STATUS = {
   PENDING: 'Pending',
-  VERIFIED: 'Verified',
+  APPROVED: 'Approved',
   REJECTED: 'Rejected',
+  INFORMATION_REQUESTED: 'Information Requested',
 };
+
+export const SHAREABLE_STATUSES = [
+  VERIFICATION_STATUS.APPROVED,
+];
 
 export function createDocumentId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
 
-  return `doc-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  return `req-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
 export function generateVerificationId() {
   const segment = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `VO-${segment}`;
+  return `VF-${segment}`;
 }
 
 export function generateDocumentHash() {
@@ -26,7 +31,7 @@ export function generateDocumentHash() {
   return `0x${hex}...${Math.random().toString(16).slice(2, 6)}`;
 }
 
-export function formatUploadDate(date = new Date()) {
+export function formatRequestDate(date = new Date()) {
   return date.toLocaleDateString('en-US', {
     month: 'short',
     day: '2-digit',
@@ -40,4 +45,24 @@ export function formatVerificationDate(date = new Date()) {
     day: '2-digit',
     year: 'numeric',
   });
+}
+
+export function createHistoryEntry(event, actor, date = new Date()) {
+  return {
+    date: formatVerificationDate(date),
+    event,
+    actor,
+  };
+}
+
+export function createTimelineEntry(label, status, date = new Date()) {
+  return {
+    date: formatRequestDate(date),
+    label,
+    status,
+  };
+}
+
+export function isShareableStatus(status) {
+  return SHAREABLE_STATUSES.includes(status);
 }
