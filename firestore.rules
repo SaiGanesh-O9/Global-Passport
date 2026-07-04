@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        getUserData().role == 'super_admin' ||
+        request.auth.token.email == 'saiganeshkrovvidi.092005@gmail.com'
+      );
+    }
+
+    function isOrgVerifier(orgId) {
+      return isAuthenticated() && 
+             getUserData().role == 'organization' && 
+             getUserData().organizationId == orgId;
+    }
+
+    // Users collection rules: read/write own profile only or super admin
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isSuperAdmin());
+      allow write: if isAuthenticated() && (request.auth.uid == userId || isSuperAdmin());
+    }
+
+    // Organizations collection rules: authenticated read (for submissions), super admin write
+    match /organizations/{orgId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+
+    // Verification Requests rules: owned requests, assigned organization requests, or super admin
+    match /verificationRequests/{requestId} {
+      allow read: if isAuthenticated() && (
+        resource.data.ownerId == request.auth.uid ||
+        isOrgVerifier(resource.data.organization.id) ||
+        isSuperAdmin()
+      );
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        resource.data.ownerId == request.auth.uid ||
+        isOrgVerifier(resource.data.organization.id) ||
+        isSuperAdmin()
+      );
+      allow delete: if isSuperAdmin();
+    }
+
+    // Audit Logs rules: append only (read only by admin)
+    match /auditLogs/{logId} {
+      allow read: if isSuperAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false; // Immutable logs
+    }
+
+    // Settings rules: authenticated read, super admin write
+    match /settings/{settingsId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+  }
+}

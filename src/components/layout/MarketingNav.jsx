@@ -1,6 +1,7 @@
 import { FileCheck2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Button from '../ui/Button.jsx';
+import { useAuth } from '../../hooks/useAuth.js';
 
 const navLinks = [
   { label: 'Features', href: '#features' },
@@ -10,6 +11,8 @@ const navLinks = [
 ];
 
 export default function MarketingNav() {
+  const { isAuthenticated, logout } = useAuth();
+
   return (
     <header className="sticky top-0 z-30 border-b border-blue-100 bg-white/95 backdrop-blur">
       <nav className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-6 lg:px-8">
@@ -34,9 +37,20 @@ export default function MarketingNav() {
           )}
         </div>
 
-        <Button className="order-2 md:order-3" to="/verify" variant="secondary">
-          Verify Link
-        </Button>
+        <div className="order-2 flex items-center gap-3 md:order-3">
+          <Button to="/verify" variant="secondary">
+            Verify Link
+          </Button>
+          {isAuthenticated ? (
+            <Button onClick={logout} variant="primary" className="cursor-pointer">
+              Sign Out
+            </Button>
+          ) : (
+            <Button to="/login" variant="primary" className="cursor-pointer">
+              Sign In
+            </Button>
+          )}
+        </div>
       </nav>
     </header>
   );

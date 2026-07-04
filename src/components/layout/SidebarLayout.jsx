@@ -1,7 +1,15 @@
 import { FileCheck2 } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth.js';
 
 export default function SidebarLayout({ children, navItems, subtitle, title }) {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="mx-auto flex max-w-7xl flex-col lg:flex-row">
@@ -38,13 +46,32 @@ export default function SidebarLayout({ children, navItems, subtitle, title }) {
           </nav>
 
           <div className="mt-8 border-t border-slate-200 pt-6">
-            <NavLink
-              to={title === 'User Dashboard' ? '/institution' : '/dashboard'}
-              className="flex items-center gap-3 rounded-md px-4 py-3 text-sm font-bold text-blue-700 bg-blue-50/50 hover:bg-blue-50 transition"
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 rounded-md px-4 py-3 text-sm font-bold text-red-600 bg-red-50/50 hover:bg-red-50 transition cursor-pointer text-left"
             >
-              {title === 'User Dashboard' ? 'Switch to Organization Center' : 'Switch to User Dashboard'}
-            </NavLink>
+              Sign Out
+            </button>
           </div>
+
+          {import.meta.env.DEV && localStorage.getItem('dev_user') && (
+            <div className="mt-4 p-3 rounded-md bg-amber-50 border border-amber-200 text-center space-y-0.5">
+              <p className="text-[10px] font-extrabold text-amber-800 uppercase tracking-wider flex items-center justify-center gap-1">
+                <span>🛠</span> Development Mode
+              </p>
+              <p className="text-xs font-bold text-slate-900">
+                {(() => {
+                  try {
+                    const r = JSON.parse(localStorage.getItem('dev_user'))?.userProfile?.role;
+                    if (r === 'student') return 'User';
+                    if (r === 'organization') return 'Organization';
+                    if (r === 'super_admin') return 'Super Admin';
+                  } catch (e) {}
+                  return 'Dev Session';
+                })()}
+              </p>
+            </div>
+          )}
         </aside>
 
         <main className="flex-1 px-5 py-8 sm:px-6 lg:px-8">{children}</main>

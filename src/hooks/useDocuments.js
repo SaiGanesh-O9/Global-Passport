@@ -1,38 +1,55 @@
 import { useContext, useMemo } from 'react';
 import { VerificationStateContext } from '../context/DocumentProvider.jsx';
 import { VERIFICATION_STATUS, MOCK_USER } from '../context/documentUtils.js';
+import { useAuth } from './useAuth.js';
 
 export function useDocuments() {
   const state = useContext(VerificationStateContext);
+  const { currentUser, userProfile } = useAuth();
 
   if (!state) {
     throw new Error('useDocuments must be used within a DocumentProvider');
   }
 
   return useMemo(() => {
-    const userVerificationRequests = state.verificationRequests.filter(
-      (req) => req.owner === MOCK_USER,
-    );
-    const pendingVerificationRequests = state.verificationRequests.filter(
+    const isOrgVerifier = userProfile && userProfile.role === 'organization';
+    const orgId = userProfile ? userProfile.organizationId : null;
+
+    const filteredRequests = state.verificationRequests.filter((req) => {
+      if (isOrgVerifier) {
+        return req.organization && req.organization.id === orgId;
+      }
+      return true;
+    });
+
+    const userVerificationRequests = filteredRequests.filter((req) => {
+      if (currentUser) {
+        return (req.owner && req.owner.uid === currentUser.uid) || (req.ownerId === currentUser.uid);
+      }
+      return req.owner === MOCK_USER;
+    });
+
+    const pendingVerificationRequests = filteredRequests.filter(
       (req) => req.status === VERIFICATION_STATUS.PENDING,
     );
-    const approvedVerificationRequests = state.verificationRequests.filter(
+    const approvedVerificationRequests = filteredRequests.filter(
       (req) => req.status === VERIFICATION_STATUS.APPROVED,
     );
-    const rejectedVerificationRequests = state.verificationRequests.filter(
+    const rejectedVerificationRequests = filteredRequests.filter(
       (req) => req.status === VERIFICATION_STATUS.REJECTED,
     );
 
     const getVerificationRequestById = (id) =>
-      state.verificationRequests.find((req) => req.id === id);
+      filteredRequests.find((req) => req.id === id);
 
     const getVerificationRequestByVerificationId = (verificationId) =>
-      state.verificationRequests.find(
+      filteredRequests.find(
         (req) => req.verificationId === verificationId,
       );
 
     return {
-      verificationRequests: state.verificationRequests,
+      verificationRequests: filteredRequests,
+      loading: state.loading,
       userVerificationRequests,
       pendingVerificationRequests,
       approvedVerificationRequests,
@@ -45,5 +62,5 @@ export function useDocuments() {
         rejected: rejectedVerificationRequests.length,
       },
     };
-  }, [state]);
+  }, [state, currentUser, userProfile]);
 }
