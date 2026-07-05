@@ -18,13 +18,13 @@ export default function HeroSection() {
             Universal Verification Network
           </p>
           <h1 className="mt-6 text-5xl font-extrabold leading-tight text-slate-950 dark:text-white sm:text-6xl lg:text-7xl tracking-tight">
-            VeriFlash
+            UniCrypt
           </h1>
           <p className="mt-2 text-2xl font-extrabold text-blue-600 dark:text-blue-400 sm:text-3xl tracking-tight">
             Verify Once. Trust Everywhere.
           </p>
           <p className="mt-6 max-w-2xl text-base leading-relaxed text-slate-500 dark:text-slate-400 font-medium">
-            VeriFlash is a Universal Verification Network that connects trusted organizations—including universities, hospitals, employers, banks, insurers and government agencies—to verify credentials at the source and securely reuse trusted verification across organizations.
+            UniCrypt is a Universal Verification Network that connects trusted organizations—including universities, hospitals, employers, banks, insurers and government agencies—to verify credentials at the source and securely reuse trusted verification across organizations.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button icon={ArrowRight} to="/dashboard" variant="primary">

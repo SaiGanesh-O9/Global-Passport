@@ -21,7 +21,7 @@ export default function MarketingNav() {
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-500/20">
             <FileCheck2 className="h-5 w-5" />
           </span>
-          <span className="tracking-tight font-extrabold text-slate-900 dark:text-white">VeriFlash</span>
+          <span className="tracking-tight font-extrabold text-slate-900 dark:text-white">UniCrypt</span>
         </Link>
 
         <div className="order-3 flex w-full flex-wrap gap-3 text-xs font-bold text-slate-550 dark:text-slate-400 md:order-2 md:w-auto md:items-center md:gap-6">

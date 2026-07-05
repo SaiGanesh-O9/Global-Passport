@@ -113,7 +113,7 @@ export default function Login() {
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-500/20">
                 <ShieldCheck className="h-5.5 w-5.5" />
               </span>
-              <span className="tracking-tight font-extrabold text-slate-900 dark:text-white">VeriFlash</span>
+              <span className="tracking-tight font-extrabold text-slate-900 dark:text-white">UniCrypt</span>
             </div>
             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1.5">Verify Once. Trust Everywhere.</p>
           </div>
