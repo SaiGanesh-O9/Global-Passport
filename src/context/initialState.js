@@ -12,7 +12,7 @@ export const defaultOrganizationProfiles = [
     website: 'www.iastate.edu',
     address: 'Ames, IA 50011',
     status: 'Active',
-    supportedCredentialTypes: ['Degree Certificate', 'Academic Transcript', 'Student ID', 'English Proficiency Score']
+    supportedCredentialTypes: ['Degree Certificate', 'Academic Transcript', 'Passport', 'Recommendation Letter', 'English Proficiency Score']
   },
   {
     id: 'org-ucm',
@@ -23,6 +23,54 @@ export const defaultOrganizationProfiles = [
     contactEmail: 'admissions@ucmo.edu',
     website: 'www.ucmo.edu',
     address: 'Warrensburg, MO 64093',
+    status: 'Active',
+    supportedCredentialTypes: ['Degree Certificate', 'Academic Transcript', 'Student ID', 'Recommendation Letter']
+  },
+  {
+    id: 'org-msu',
+    name: 'Missouri State University',
+    description: 'A public university system with its main campus in Springfield, Missouri.',
+    category: 'University',
+    logo: null,
+    contactEmail: 'records@missouristate.edu',
+    website: 'www.missouristate.edu',
+    address: 'Springfield, MO 65897',
+    status: 'Active',
+    supportedCredentialTypes: ['Degree Certificate', 'Academic Transcript', 'Student ID']
+  },
+  {
+    id: 'org-asu',
+    name: 'Arizona State University',
+    description: 'One of the largest public universities in the United States by enrollment.',
+    category: 'University',
+    logo: null,
+    contactEmail: 'verify@asu.edu',
+    website: 'www.asu.edu',
+    address: 'Tempe, AZ 85281',
+    status: 'Active',
+    supportedCredentialTypes: ['Degree Certificate', 'Academic Transcript', 'Student ID', 'English Proficiency Score']
+  },
+  {
+    id: 'org-utd',
+    name: 'University of Texas at Dallas',
+    description: 'A public research university in the University of Texas System.',
+    category: 'University',
+    logo: null,
+    contactEmail: 'registrar@utdallas.edu',
+    website: 'www.utdallas.edu',
+    address: 'Richardson, TX 75080',
+    status: 'Active',
+    supportedCredentialTypes: ['Degree Certificate', 'Academic Transcript', 'Student ID']
+  },
+  {
+    id: 'org-northeastern',
+    name: 'Northeastern University',
+    description: 'A private research university with its main campus in Boston, Massachusetts.',
+    category: 'University',
+    logo: null,
+    contactEmail: 'registrar@northeastern.edu',
+    website: 'www.northeastern.edu',
+    address: 'Boston, MA 02115',
     status: 'Active',
     supportedCredentialTypes: ['Degree Certificate', 'Academic Transcript', 'Student ID', 'Recommendation Letter']
   },
@@ -51,6 +99,18 @@ export const defaultOrganizationProfiles = [
     supportedCredentialTypes: ['Degree Certificate', 'Academic Transcript', 'Student ID', 'Recommendation Letter']
   },
   {
+    id: 'org-melbourne',
+    name: 'University of Melbourne',
+    description: 'A public research university located in Melbourne, Australia.',
+    category: 'University',
+    logo: null,
+    contactEmail: 'verify@unimelb.edu.au',
+    website: 'www.unimelb.edu.au',
+    address: 'Melbourne VIC 3010, Australia',
+    status: 'Active',
+    supportedCredentialTypes: ['Degree Certificate', 'Academic Transcript', 'Student ID', 'English Proficiency Score']
+  },
+  {
     id: 'org-nus',
     name: 'National University of Singapore',
     description: 'A national research university in Singapore.',
@@ -67,7 +127,7 @@ export const defaultOrganizationProfiles = [
   {
     id: 'org-microsoft',
     name: 'Microsoft',
-    description: 'A global technology corporation producing software, electronics, and cloud solutions.',
+    description: 'A global technology corporation producing software and cloud solutions.',
     category: 'Employer',
     logo: null,
     contactEmail: 'verifications@microsoft.com',
@@ -89,6 +149,42 @@ export const defaultOrganizationProfiles = [
     supportedCredentialTypes: ['Employment Letter', 'Experience Letter', 'Government ID', 'Resume', 'Degree Certificate']
   },
   {
+    id: 'org-amazon',
+    name: 'Amazon',
+    description: 'A multinational technology company focusing on e-commerce and cloud computing.',
+    category: 'Employer',
+    logo: null,
+    contactEmail: 'amazon-verify@amazon.com',
+    website: 'www.amazon.com',
+    address: '410 Terry Ave N, Seattle, WA',
+    status: 'Active',
+    supportedCredentialTypes: ['Employment Letter', 'Experience Letter', 'Government ID', 'Resume']
+  },
+  {
+    id: 'org-deloitte',
+    name: 'Deloitte',
+    description: 'One of the Big Four professional services networks in the world.',
+    category: 'Employer',
+    logo: null,
+    contactEmail: 'verify@deloitte.com',
+    website: 'www.deloitte.com',
+    address: '30 Rockefeller Plaza, New York, NY',
+    status: 'Active',
+    supportedCredentialTypes: ['Employment Letter', 'Experience Letter', 'Government ID', 'Resume']
+  },
+  {
+    id: 'org-tcs',
+    name: 'TCS',
+    description: 'Tata Consultancy Services, a global IT services and consulting company.',
+    category: 'Employer',
+    logo: null,
+    contactEmail: 'verify@tcs.com',
+    website: 'www.tcs.com',
+    address: 'Mittal Towers, Nariman Point, Mumbai, India',
+    status: 'Active',
+    supportedCredentialTypes: ['Employment Letter', 'Experience Letter', 'Government ID', 'Resume']
+  },
+  {
     id: 'org-infosys',
     name: 'Infosys',
     description: 'A global leader in next-generation digital services and consulting.',
@@ -100,8 +196,56 @@ export const defaultOrganizationProfiles = [
     status: 'Active',
     supportedCredentialTypes: ['Employment Letter', 'Experience Letter', 'Government ID', 'Resume', 'Salary Slips']
   },
+  {
+    id: 'org-accenture',
+    name: 'Accenture',
+    description: 'A professional services company specializing in IT services and consulting.',
+    category: 'Employer',
+    logo: null,
+    contactEmail: 'verify.accenture@accenture.com',
+    website: 'www.accenture.com',
+    address: 'Dublin, Ireland',
+    status: 'Active',
+    supportedCredentialTypes: ['Employment Letter', 'Experience Letter', 'Government ID', 'Resume']
+  },
+  {
+    id: 'org-ibm',
+    name: 'IBM',
+    description: 'International Business Machines Corporation, a global technology leader.',
+    category: 'Employer',
+    logo: null,
+    contactEmail: 'verify@ibm.com',
+    website: 'www.ibm.com',
+    address: 'Armonk, New York, NY',
+    status: 'Active',
+    supportedCredentialTypes: ['Employment Letter', 'Experience Letter', 'Government ID', 'Resume']
+  },
+  {
+    id: 'org-capgemini',
+    name: 'Capgemini',
+    description: 'A global leader in partnering with companies to transform and manage their business.',
+    category: 'Employer',
+    logo: null,
+    contactEmail: 'verify@capgemini.com',
+    website: 'www.capgemini.com',
+    address: 'Paris, France',
+    status: 'Active',
+    supportedCredentialTypes: ['Employment Letter', 'Experience Letter', 'Government ID', 'Resume']
+  },
+  {
+    id: 'org-cognizant',
+    name: 'Cognizant',
+    description: 'A multinational technology company providing custom business services.',
+    category: 'Employer',
+    logo: null,
+    contactEmail: 'verify@cognizant.com',
+    website: 'www.cognizant.com',
+    address: 'Teaneck, New Jersey, NJ',
+    status: 'Active',
+    supportedCredentialTypes: ['Employment Letter', 'Experience Letter', 'Government ID', 'Resume']
+  },
 
-  // 3. Banks
+  // 3. Banks & Financial Institutions
   {
     id: 'org-hdfc',
     name: 'HDFC Bank',
@@ -111,6 +255,42 @@ export const defaultOrganizationProfiles = [
     contactEmail: 'verification@hdfcbank.com',
     website: 'www.hdfcbank.com',
     address: 'Lower Parel, Mumbai, India',
+    status: 'Active',
+    supportedCredentialTypes: ['Bank Statement', 'Income Certificate', 'PAN', 'Aadhaar', 'Passport', 'Admission Letter']
+  },
+  {
+    id: 'org-sbi',
+    name: 'State Bank of India',
+    description: 'A public sector banking and financial services statutory body in India.',
+    category: 'Bank',
+    logo: null,
+    contactEmail: 'verify@sbi.co.in',
+    website: 'www.sbi.co.in',
+    address: 'Madame Cama Road, Mumbai, India',
+    status: 'Active',
+    supportedCredentialTypes: ['Bank Statement', 'Income Certificate', 'PAN', 'Aadhaar', 'Passport']
+  },
+  {
+    id: 'org-icici',
+    name: 'ICICI Bank',
+    description: 'A leading private sector bank in India offering commercial and personal banking services.',
+    category: 'Bank',
+    logo: null,
+    contactEmail: 'verify@icicibank.com',
+    website: 'www.icicibank.com',
+    address: 'Bandra Kurla Complex, Mumbai, India',
+    status: 'Active',
+    supportedCredentialTypes: ['Bank Statement', 'Income Certificate', 'PAN', 'Aadhaar', 'Passport']
+  },
+  {
+    id: 'org-axis',
+    name: 'Axis Bank',
+    description: 'The third-largest private sector bank in India, offering comprehensive financial suites.',
+    category: 'Bank',
+    logo: null,
+    contactEmail: 'verify@axisbank.com',
+    website: 'www.axisbank.com',
+    address: 'Wadia International Centre, Mumbai, India',
     status: 'Active',
     supportedCredentialTypes: ['Bank Statement', 'Income Certificate', 'PAN', 'Aadhaar', 'Passport']
   },
@@ -141,6 +321,18 @@ export const defaultOrganizationProfiles = [
     supportedCredentialTypes: ['Passport', 'Birth Certificate', 'Address Proof']
   },
   {
+    id: 'org-digilocker',
+    name: 'DigiLocker',
+    description: 'A secure cloud-based platform for storage, sharing and verification of documents.',
+    category: 'Government',
+    logo: null,
+    contactEmail: 'support@digilocker.gov.in',
+    website: 'www.digilocker.gov.in',
+    address: 'Electronics Niketan, New Delhi, India',
+    status: 'Active',
+    supportedCredentialTypes: ['Aadhaar', 'PAN', 'Birth Certificate', 'Driver\'s License']
+  },
+  {
     id: 'org-uidai',
     name: 'UIDAI',
     description: 'Unique Identification Authority of India managing Aadhaar identities.',
@@ -164,6 +356,18 @@ export const defaultOrganizationProfiles = [
     status: 'Active',
     supportedCredentialTypes: ['Passport', 'Aadhaar', 'Birth Certificate', 'Degree Certificate']
   },
+  {
+    id: 'org-itax',
+    name: 'Income Tax Department',
+    description: 'Government revenue agency responsible for collecting taxes and verifying income returns.',
+    category: 'Government',
+    logo: null,
+    contactEmail: 'verify@incometax.gov.in',
+    website: 'www.incometaxindia.gov.in',
+    address: 'Connaught Place, New Delhi, India',
+    status: 'Active',
+    supportedCredentialTypes: ['PAN', 'Tax Return', 'Income Certificate']
+  },
 
   // 5. Professional Certification Bodies
   {
@@ -179,6 +383,18 @@ export const defaultOrganizationProfiles = [
     supportedCredentialTypes: ['Professional Certificate', 'Candidate ID', 'Exam Score Report']
   },
   {
+    id: 'org-mslearn',
+    name: 'Microsoft Learn',
+    description: 'Microsoft learning platform providing certifications and credential verifications.',
+    category: 'Certification Body',
+    logo: null,
+    contactEmail: 'verify@microsoft.com',
+    website: 'learn.microsoft.com',
+    address: 'One Microsoft Way, Redmond, WA',
+    status: 'Active',
+    supportedCredentialTypes: ['Professional Certificate', 'Candidate ID']
+  },
+  {
     id: 'org-cisco',
     name: 'Cisco Networking Academy',
     description: 'IT skills and career building certifications program.',
@@ -187,6 +403,30 @@ export const defaultOrganizationProfiles = [
     contactEmail: 'academy-verify@cisco.com',
     website: 'www.netacad.com',
     address: '170 West Tasman Dr, San Jose, CA',
+    status: 'Active',
+    supportedCredentialTypes: ['Professional Certificate', 'Candidate ID', 'Exam Score Report']
+  },
+  {
+    id: 'org-oracle',
+    name: 'Oracle University',
+    description: 'Global learning platform for Oracle technology certifications and badges.',
+    category: 'Certification Body',
+    logo: null,
+    contactEmail: 'verify@oracle.com',
+    website: 'education.oracle.com',
+    address: 'Redwood Shores, California, CA',
+    status: 'Active',
+    supportedCredentialTypes: ['Professional Certificate', 'Candidate ID']
+  },
+  {
+    id: 'org-comptia',
+    name: 'CompTIA',
+    description: 'Computing Technology Industry Association providing professional certifications.',
+    category: 'Certification Body',
+    logo: null,
+    contactEmail: 'verify@comptia.org',
+    website: 'www.comptia.org',
+    address: 'Downers Grove, Illinois, IL',
     status: 'Active',
     supportedCredentialTypes: ['Professional Certificate', 'Candidate ID', 'Exam Score Report']
   }
