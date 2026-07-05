@@ -106,7 +106,7 @@ export default function InstitutionTable({ activeTab }) {
       
       let matchesTab = false;
       if (activeTab === 'pending') {
-        matchesTab = req.status === 'Pending' || req.status === 'Information Requested';
+        matchesTab = req.status === 'Pending';
       } else if (activeTab === 'approved') {
         matchesTab = req.status === 'Approved';
       } else if (activeTab === 'rejected') {
