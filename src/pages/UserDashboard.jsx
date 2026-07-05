@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useDocuments } from '../hooks/useDocuments.js';
+import { useAuth } from '../hooks/useAuth.js';
 import DocumentTable from '../components/dashboard/DocumentTable.jsx';
 import UploadDocumentModal from '../components/dashboard/UploadDocumentModal.jsx';
 import SidebarLayout from '../components/layout/SidebarLayout.jsx';
@@ -61,6 +62,7 @@ function ActivityFeed() {
 }
 
 export default function UserDashboard() {
+  const { currentUser } = useAuth();
   const {
     userVerificationRequests,
     organizationProfiles,
