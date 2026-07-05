@@ -948,6 +948,25 @@ export default function AdminPortal() {
                   <table className="w-full min-w-[900px] text-left text-xs border-collapse">
                     <thead className="bg-slate-50 dark:bg-slate-900/30 text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold uppercase border-b border-slate-200 dark:border-slate-800/40">
                       <tr>
+                        <th className="px-4 py-3 w-12 text-center">
+                          <input
+                            type="checkbox"
+                            checked={filteredUsers.length > 0 && filteredUsers.every(u => selectedUserIds[u.id] || u.id === currentUser?.uid)}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              const newSelected = {};
+                              filteredUsers.forEach(u => {
+                                if (u.id !== currentUser?.uid) {
+                                  if (checked) {
+                                    newSelected[u.id] = true;
+                                  }
+                                }
+                              });
+                              setSelectedUserIds(newSelected);
+                            }}
+                            className="h-4 w-4 rounded border-slate-300 dark:border-slate-800 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          />
+                        </th>
                         <th className="px-4 py-3">Name / Email</th>
                         <th className="px-4 py-3">Platform Role</th>
                         <th className="px-4 py-3">Status</th>
@@ -961,6 +980,28 @@ export default function AdminPortal() {
                         const isSelf = user.id === currentUser?.uid;
                         return (
                           <tr key={user.id} className="hover:bg-slate-50/40 dark:hover:bg-slate-800/30 dark:bg-slate-900/30/50 bg-white dark:bg-[#12131a]">
+                            <td className="px-4 py-3.5 w-12 text-center">
+                              {!isSelf ? (
+                                <input
+                                  type="checkbox"
+                                  checked={!!selectedUserIds[user.id]}
+                                  onChange={(e) => {
+                                    setSelectedUserIds(prev => {
+                                      const next = { ...prev };
+                                      if (e.target.checked) {
+                                        next[user.id] = true;
+                                      } else {
+                                        delete next[user.id];
+                                      }
+                                      return next;
+                                    });
+                                  }}
+                                  className="h-4 w-4 rounded border-slate-300 dark:border-slate-800 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                />
+                              ) : (
+                                <div className="h-4 w-4 mx-auto bg-slate-105/50 border border-slate-200 dark:bg-slate-900 rounded" />
+                              )}
+                            </td>
                             <td className="px-4 py-3.5">
                               <p className="font-bold text-slate-950 dark:text-white flex items-center gap-1">
                                 {user.name}

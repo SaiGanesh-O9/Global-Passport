@@ -202,15 +202,11 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
           const result = await uploadToCloudinary(file);
           fileUrl = result.url;
         } catch (storageErr) {
-          if (import.meta.env.DEV) {
-            console.warn('Cloudinary upload failed, using local Blob fallback:', storageErr.message);
-            fileUrl = URL.createObjectURL(file);
-            uploadMode = 'local';
-            storageStatus = 'disabled';
-            storageErrorOccurred = true;
-          } else {
-            throw storageErr;
-          }
+          console.warn('Cloudinary upload failed, using local Blob fallback:', storageErr.message);
+          fileUrl = URL.createObjectURL(file);
+          uploadMode = 'local';
+          storageStatus = 'disabled';
+          storageErrorOccurred = true;
         }
 
         // 1. Create a Credential record in Firestore if not already existing
