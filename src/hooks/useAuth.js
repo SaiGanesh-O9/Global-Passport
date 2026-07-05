@@ -78,8 +78,21 @@ export function AuthProvider({ children }) {
     try {
       setLoading(true);
       setAuthReady(false);
-      const cred = await signInAnonymously(auth);
-      const authUid = cred.user.uid;
+      
+      let authUid = `dev-mock-uid-${Date.now()}`;
+      let mockUser = {
+        uid: authUid,
+        email: `dev-${roleType}@localhost`,
+        displayName: `Dev ${roleType.toUpperCase()}`
+      };
+
+      try {
+        const cred = await signInAnonymously(auth);
+        authUid = cred.user.uid;
+        mockUser = cred.user;
+      } catch (authErr) {
+        console.warn("Firebase Anonymous Auth failed, falling back to local mock auth:", authErr.message);
+      }
 
       const devProfiles = {
         user: {
@@ -111,7 +124,6 @@ export function AuthProvider({ children }) {
       const profile = devProfiles[roleType];
       if (!profile) throw new Error('Invalid developer role type selected');
 
-      const userRef = doc(db, 'users', profile.uid);
       const profileData = {
         name: profile.name,
         email: profile.email,
@@ -124,10 +136,15 @@ export function AuthProvider({ children }) {
         lastLogin: new Date().toISOString()
       };
 
-      await setDoc(userRef, profileData);
+      try {
+        const userRef = doc(db, 'users', profile.uid);
+        await setDoc(userRef, profileData);
+      } catch (dbErr) {
+        console.warn("Firestore user profile save failed, loading profile directly into local state memory:", dbErr.message);
+      }
       
       // Update state synchronously before clearing loading to prevent flash of undefined role
-      setCurrentUser(cred.user);
+      setCurrentUser(mockUser);
       setUserProfile(profileData);
       setAuthReady(true);
       setLoading(false);

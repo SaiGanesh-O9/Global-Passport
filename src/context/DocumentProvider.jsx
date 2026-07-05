@@ -295,22 +295,31 @@ export function DocumentProvider({ children }) {
 
         const requestRef = payload.id ? doc(db, 'verificationRequests', payload.id) : doc(collection(db, 'verificationRequests'));
         const genId = requestRef.id;
+        const finalRequestData = { ...requestData, id: genId };
 
-        await setDoc(requestRef, requestData);
+        try {
+          await setDoc(requestRef, finalRequestData);
 
-        await addDoc(collection(db, 'activityLogs'), {
-          requestId: genId,
-          type: 'New',
-          before: 'None',
-          after: 'Pending',
-          actor: currentUser.email || 'Anonymous User',
-          ownerId: currentUser.uid,
-          timestamp: new Date().toISOString(),
-          credentialType: payload.credentialType,
-          organizationName: payload.organization.name,
-          title: 'New Request',
-          desc: `Verification request initiated for ${payload.credentialType}.`
-        });
+          await addDoc(collection(db, 'activityLogs'), {
+            requestId: genId,
+            type: 'New',
+            before: 'None',
+            after: 'Pending',
+            actor: currentUser.email || 'Anonymous User',
+            ownerId: currentUser.uid,
+            timestamp: new Date().toISOString(),
+            credentialType: payload.credentialType,
+            organizationName: payload.organization.name,
+            title: 'New Request',
+            desc: `Verification request initiated for ${payload.credentialType}.`
+          });
+        } catch (dbErr) {
+          console.warn("Firestore save failed, falling back to local memory update:", dbErr.message);
+          dispatch({
+            type: 'REQUEST_VERIFICATION',
+            payload: { request: finalRequestData }
+          });
+        }
       },
       approveVerification: async (verificationId) => {
         const verifiedAt = new Date();
@@ -320,39 +329,47 @@ export function DocumentProvider({ children }) {
         const beforeStatus = reqData.status || 'Pending';
         const ownerId = reqData.ownerId || currentUser.uid;
 
-        await updateDoc(doc(db, 'verificationRequests', verificationId), {
-          status: VERIFICATION_STATUS.APPROVED,
-          verificationId: generateVerificationId(),
-          verifiedAt: formatVerificationDate(verifiedAt),
-          hash: generateDocumentHash(),
-          timeline: arrayUnion(timelineEntry)
-        });
-        if (currentUser) {
-          const logRef = doc(collection(db, 'auditLogs'));
-          await setDoc(logRef, {
-            action: 'APPROVE_REQUEST',
-            actorId: currentUser.uid,
-            actorEmail: currentUser.email,
-            targetId: verificationId,
-            targetName: 'Verification Request',
-            details: `Approved verification request ${verificationId}`,
+        try {
+          await updateDoc(doc(db, 'verificationRequests', verificationId), {
+            status: VERIFICATION_STATUS.APPROVED,
+            verificationId: generateVerificationId(),
+            verifiedAt: formatVerificationDate(verifiedAt),
+            hash: generateDocumentHash(),
+            timeline: arrayUnion(timelineEntry)
+          });
+          if (currentUser) {
+            const logRef = doc(collection(db, 'auditLogs'));
+            await setDoc(logRef, {
+              action: 'APPROVE_REQUEST',
+              actorId: currentUser.uid,
+              actorEmail: currentUser.email,
+              targetId: verificationId,
+              targetName: 'Verification Request',
+              details: `Approved verification request ${verificationId}`,
+              timestamp: new Date().toISOString(),
+            });
+          }
+
+          await addDoc(collection(db, 'activityLogs'), {
+            requestId: verificationId,
+            type: 'Approved',
+            before: beforeStatus,
+            after: 'Approved',
+            actor: currentUser.email || 'Verifier',
+            ownerId,
             timestamp: new Date().toISOString(),
+            credentialType: reqData.credentialType || 'Document',
+            organizationName: reqData.organization?.name || 'Verifier',
+            title: `${reqData.credentialType || 'Document'} Approved`,
+            desc: `Approved by ${reqData.organization?.name || 'Verifier'}.`
+          });
+        } catch (dbErr) {
+          console.warn("Firestore approve failed, falling back to local memory update:", dbErr.message);
+          dispatch({
+            type: 'APPROVE_VERIFICATION',
+            payload: { verificationId }
           });
         }
-
-        await addDoc(collection(db, 'activityLogs'), {
-          requestId: verificationId,
-          type: 'Approved',
-          before: beforeStatus,
-          after: 'Approved',
-          actor: currentUser.email || 'Verifier',
-          ownerId,
-          timestamp: new Date().toISOString(),
-          credentialType: reqData.credentialType || 'Document',
-          organizationName: reqData.organization?.name || 'Verifier',
-          title: `${reqData.credentialType || 'Document'} Approved`,
-          desc: `Approved by ${reqData.organization?.name || 'Verifier'}.`
-        });
       },
       rejectVerification: async (verificationId) => {
         const rejectedAt = new Date();
@@ -362,36 +379,44 @@ export function DocumentProvider({ children }) {
         const beforeStatus = reqData.status || 'Pending';
         const ownerId = reqData.ownerId || currentUser.uid;
 
-        await updateDoc(doc(db, 'verificationRequests', verificationId), {
-          status: VERIFICATION_STATUS.REJECTED,
-          timeline: arrayUnion(timelineEntry)
-        });
-        if (currentUser) {
-          const logRef = doc(collection(db, 'auditLogs'));
-          await setDoc(logRef, {
-            action: 'REJECT_REQUEST',
-            actorId: currentUser.uid,
-            actorEmail: currentUser.email,
-            targetId: verificationId,
-            targetName: 'Verification Request',
-            details: `Rejected verification request ${verificationId}`,
+        try {
+          await updateDoc(doc(db, 'verificationRequests', verificationId), {
+            status: VERIFICATION_STATUS.REJECTED,
+            timeline: arrayUnion(timelineEntry)
+          });
+          if (currentUser) {
+            const logRef = doc(collection(db, 'auditLogs'));
+            await setDoc(logRef, {
+              action: 'REJECT_REQUEST',
+              actorId: currentUser.uid,
+              actorEmail: currentUser.email,
+              targetId: verificationId,
+              targetName: 'Verification Request',
+              details: `Rejected verification request ${verificationId}`,
+              timestamp: new Date().toISOString(),
+            });
+          }
+
+          await addDoc(collection(db, 'activityLogs'), {
+            requestId: verificationId,
+            type: 'Rejected',
+            before: beforeStatus,
+            after: 'Rejected',
+            actor: currentUser.email || 'Verifier',
+            ownerId,
             timestamp: new Date().toISOString(),
+            credentialType: reqData.credentialType || 'Document',
+            organizationName: reqData.organization?.name || 'Verifier',
+            title: `${reqData.credentialType || 'Document'} Rejected`,
+            desc: `Rejected by ${reqData.organization?.name || 'Verifier'}.`
+          });
+        } catch (dbErr) {
+          console.warn("Firestore reject failed, falling back to local memory update:", dbErr.message);
+          dispatch({
+            type: 'REJECT_VERIFICATION',
+            payload: { verificationId }
           });
         }
-
-        await addDoc(collection(db, 'activityLogs'), {
-          requestId: verificationId,
-          type: 'Rejected',
-          before: beforeStatus,
-          after: 'Rejected',
-          actor: currentUser.email || 'Verifier',
-          ownerId,
-          timestamp: new Date().toISOString(),
-          credentialType: reqData.credentialType || 'Document',
-          organizationName: reqData.organization?.name || 'Verifier',
-          title: `${reqData.credentialType || 'Document'} Rejected`,
-          desc: `Rejected by ${reqData.organization?.name || 'Verifier'}.`
-        });
       },
       requestMoreInformation: async (verificationId) => {
         const requestedAt = new Date();
@@ -401,36 +426,44 @@ export function DocumentProvider({ children }) {
         const beforeStatus = reqData.status || 'Pending';
         const ownerId = reqData.ownerId || currentUser.uid;
 
-        await updateDoc(doc(db, 'verificationRequests', verificationId), {
-          status: VERIFICATION_STATUS.INFORMATION_REQUESTED,
-          timeline: arrayUnion(timelineEntry)
-        });
-        if (currentUser) {
-          const logRef = doc(collection(db, 'auditLogs'));
-          await setDoc(logRef, {
-            action: 'REQUEST_INFORMATION',
-            actorId: currentUser.uid,
-            actorEmail: currentUser.email,
-            targetId: verificationId,
-            targetName: 'Verification Request',
-            details: `Requested additional information for request ${verificationId}`,
-            timestamp: new Date().toISOString(),
+        try {
+          await updateDoc(doc(db, 'verificationRequests', verificationId), {
+            status: VERIFICATION_STATUS.INFORMATION_REQUESTED,
+            timeline: arrayUnion(timelineEntry)
           });
-        }
+          if (currentUser) {
+            const logRef = doc(collection(db, 'auditLogs'));
+            await setDoc(logRef, {
+              action: 'REQUEST_INFORMATION',
+              actorId: currentUser.uid,
+              actorEmail: currentUser.email,
+              targetId: verificationId,
+              targetName: 'Verification Request',
+              details: `Requested additional information for request ${verificationId}`,
+              timestamp: new Date().toISOString(),
+            });
+          }
 
-        await addDoc(collection(db, 'activityLogs'), {
-          requestId: verificationId,
-          type: 'Information Requested',
-          before: beforeStatus,
-          after: 'Information Requested',
-          actor: currentUser.email || 'Verifier',
-          ownerId,
-          timestamp: new Date().toISOString(),
-          credentialType: reqData.credentialType || 'Document',
-          organizationName: reqData.organization?.name || 'Verifier',
+          await addDoc(collection(db, 'activityLogs'), {
+            requestId: verificationId,
+            type: 'Information Requested',
+            before: beforeStatus,
+            after: 'Information Requested',
+            actor: currentUser.email || 'Verifier',
+            ownerId,
+            timestamp: new Date().toISOString(),
+            credentialType: reqData.credentialType || 'Document',
+            organizationName: reqData.organization?.name || 'Verifier',
           title: `Information Requested`,
           desc: `Additional information requested for ${reqData.credentialType || 'Document'} by ${reqData.organization?.name || 'Verifier'}.`
-        });
+          });
+        } catch (dbErr) {
+          console.warn("Firestore requestMoreInfo failed, falling back to local memory update:", dbErr.message);
+          dispatch({
+            type: 'REQUEST_MORE_INFORMATION',
+            payload: { verificationId }
+          });
+        }
       },
       updateUserRoleStatus: async (userId, updates, actorEmail, actorId) => {
         const userRef = doc(db, 'users', userId);

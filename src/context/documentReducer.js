@@ -61,11 +61,49 @@ export function documentReducer(state, action) {
         activities: action.payload.activities || [],
       };
 
-    case VERIFICATION_ACTION_TYPES.REQUEST_VERIFICATION:
-    case VERIFICATION_ACTION_TYPES.APPROVE_VERIFICATION:
-    case VERIFICATION_ACTION_TYPES.REJECT_VERIFICATION:
-    case VERIFICATION_ACTION_TYPES.REQUEST_MORE_INFORMATION:
-      return state;
+    case VERIFICATION_ACTION_TYPES.REQUEST_VERIFICATION: {
+      const exists = state.verificationRequests.some(r => r.id === action.payload.request.id);
+      return {
+        ...state,
+        verificationRequests: exists 
+          ? state.verificationRequests.map(r => r.id === action.payload.request.id ? action.payload.request : r)
+          : [...state.verificationRequests, action.payload.request]
+      };
+    }
+
+    case VERIFICATION_ACTION_TYPES.APPROVE_VERIFICATION: {
+      return {
+        ...state,
+        verificationRequests: state.verificationRequests.map(r => 
+          r.id === action.payload.verificationId 
+            ? { 
+                ...r, 
+                status: 'Approved', 
+                verificationId: action.payload.verificationId.substring(0, 8).toUpperCase(),
+                verifiedAt: new Date().toLocaleDateString()
+              } 
+            : r
+        )
+      };
+    }
+
+    case VERIFICATION_ACTION_TYPES.REJECT_VERIFICATION: {
+      return {
+        ...state,
+        verificationRequests: state.verificationRequests.map(r => 
+          r.id === action.payload.verificationId ? { ...r, status: 'Rejected' } : r
+        )
+      };
+    }
+
+    case VERIFICATION_ACTION_TYPES.REQUEST_MORE_INFORMATION: {
+      return {
+        ...state,
+        verificationRequests: state.verificationRequests.map(r => 
+          r.id === action.payload.verificationId ? { ...r, status: 'More Info' } : r
+        )
+      };
+    }
 
     default:
       return state;
