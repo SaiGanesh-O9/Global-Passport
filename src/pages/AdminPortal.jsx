@@ -124,6 +124,10 @@ export default function AdminPortal() {
   const [userRoleFilter, setUserRoleFilter] = useState('All');
   const [userSortField, setUserSortField] = useState('newest'); // newest | oldest | lastLogin
 
+  // Selection states
+  const [selectedUserIds, setSelectedUserIds] = useState({});
+  const [selectedOrgIds, setSelectedOrgIds] = useState({});
+
   // Verification Requests Filters/Search States
   const [requestSearch, setRequestSearch] = useState('');
   const [requestStatusFilter, setRequestStatusFilter] = useState('All');
@@ -327,6 +331,54 @@ export default function AdminPortal() {
         } catch (err) {
           console.error(err);
           triggerNotification('error', 'Failed to delete organization: ' + err.message);
+        } finally {
+          setActionProcessing(false);
+          setConfirmAction(null);
+        }
+      }
+    });
+  };
+
+  const handleBulkDeleteUsers = () => {
+    const ids = Object.keys(selectedUserIds).filter(id => selectedUserIds[id] && id !== currentUser.uid);
+    if (ids.length === 0) return;
+
+    setConfirmAction({
+      title: 'Bulk Delete Users',
+      message: `Are you sure you want to permanently delete these ${ids.length} selected user account(s)? This will remove all their Firestore user profile documents.`,
+      onConfirm: async () => {
+        setActionProcessing(true);
+        try {
+          await Promise.all(ids.map(id => deleteUser(id, currentUser.email, currentUser.uid)));
+          triggerNotification('success', `Successfully deleted ${ids.length} user account(s).`);
+          setSelectedUserIds({});
+        } catch (err) {
+          console.error(err);
+          triggerNotification('error', 'Failed to bulk delete users: ' + err.message);
+        } finally {
+          setActionProcessing(false);
+          setConfirmAction(null);
+        }
+      }
+    });
+  };
+
+  const handleBulkDeleteOrgs = () => {
+    const ids = Object.keys(selectedOrgIds).filter(id => selectedOrgIds[id]);
+    if (ids.length === 0) return;
+
+    setConfirmAction({
+      title: 'Bulk Delete Organizations',
+      message: `Are you sure you want to permanently delete these ${ids.length} selected organization(s) and their profiles?`,
+      onConfirm: async () => {
+        setActionProcessing(true);
+        try {
+          await Promise.all(ids.map(id => deleteOrganization(id, currentUser.email, currentUser.uid)));
+          triggerNotification('success', `Successfully deleted ${ids.length} organization(s).`);
+          setSelectedOrgIds({});
+        } catch (err) {
+          console.error(err);
+          triggerNotification('error', 'Failed to bulk delete organizations: ' + err.message);
         } finally {
           setActionProcessing(false);
           setConfirmAction(null);
