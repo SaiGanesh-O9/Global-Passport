@@ -18,7 +18,7 @@ import {
   setActivities,
 } from './documentActions.js';
 import { documentReducer } from './documentReducer.js';
-import { createInitialDocumentState } from './initialState.js';
+import { createInitialDocumentState, defaultOrganizationProfiles } from './initialState.js';
 import {
   VERIFICATION_STATUS,
   formatRequestDate,
@@ -82,51 +82,31 @@ export function DocumentProvider({ children }) {
     if (!currentUser || !userProfile) return;
 
     const unsubscribeOrgs = onSnapshot(collection(db, 'organizations'), async (snapshot) => {
-      if (snapshot.empty) {
-        const defaultOrgs = [
-          {
-            organizationId: 'org-northbridge',
-            name: 'Northbridge University',
-            type: 'University',
-            status: 'Active',
-            verificationStatus: 'Verified',
-            website: 'www.northbridge.edu',
-            officialEmailDomain: 'northbridge.edu',
-            logoUrl: null,
-            createdAt: new Date().toISOString()
-          },
-          {
-            organizationId: 'org-apollo',
-            name: 'Apollo Hospitals',
-            type: 'Hospital',
-            status: 'Active',
-            verificationStatus: 'Verified',
-            website: 'www.apollohospitals.com',
-            officialEmailDomain: 'apollohospitals.com',
-            logoUrl: null,
-            createdAt: new Date().toISOString()
-          },
-          {
-            organizationId: 'org-infosys',
-            name: 'Infosys',
-            type: 'Employer',
-            status: 'Active',
-            verificationStatus: 'Verified',
-            website: 'www.infosys.com',
-            officialEmailDomain: 'infosys.com',
-            logoUrl: null,
-            createdAt: new Date().toISOString()
-          }
-        ];
+      const existingIds = new Set();
+      snapshot.forEach(doc => existingIds.add(doc.id));
 
+      const missingOrgs = defaultOrganizationProfiles.filter(org => !existingIds.has(org.id));
+
+      if (missingOrgs.length > 0) {
         try {
-          for (const org of defaultOrgs) {
-            await setDoc(doc(db, 'organizations', org.organizationId), org);
+          for (const org of missingOrgs) {
+            const orgDoc = {
+              organizationId: org.id,
+              name: org.name,
+              type: org.category || org.type || 'University',
+              status: org.status || 'Active',
+              verificationStatus: 'Verified',
+              website: org.website || '',
+              officialEmailDomain: org.contactEmail ? org.contactEmail.split('@')[1] : '',
+              logoUrl: null,
+              createdAt: new Date().toISOString()
+            };
+            await setDoc(doc(db, 'organizations', org.id), orgDoc);
           }
 
-          const { organizationProfiles, verificationServices, credentialTemplates, credentials, documents } = createInitialDocumentState(currentUser.uid);
+          const { verificationServices, credentialTemplates, credentials, documents } = createInitialDocumentState(currentUser.uid);
           
-          for (const prof of organizationProfiles) {
+          for (const prof of defaultOrganizationProfiles) {
             await setDoc(doc(db, 'organizationProfiles', prof.id), prof);
           }
 
@@ -146,15 +126,15 @@ export function DocumentProvider({ children }) {
             await setDoc(doc(db, 'documents', docItem.id), docItem);
           }
         } catch (seedErr) {
-          console.warn("Seeding database failed:", seedErr.message);
+          console.warn("Seeding missing database items failed:", seedErr.message);
         }
-      } else {
-        const orgs = [];
-        snapshot.forEach((doc) => {
-          orgs.push({ id: doc.id, ...doc.data() });
-        });
-        dispatch(setOrganizations(orgs));
       }
+
+      const orgs = [];
+      snapshot.forEach((docItem) => {
+        orgs.push({ id: docItem.id, ...docItem.data() });
+      });
+      dispatch(setOrganizations(orgs));
     }, (error) => {
       console.error("Organizations onSnapshot subscription error:", error);
     });
