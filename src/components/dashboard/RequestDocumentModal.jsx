@@ -8,6 +8,8 @@ import Textarea from '../ui/Textarea.jsx';
 import { X, ClipboardList, Send, Loader2, CheckCircle2 } from 'lucide-react';
 
 const credentialTypeOptions = [
+  'Passport',
+  'Academic Essay',
   'Degree',
   'Transcript',
   'Medical License',

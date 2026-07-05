@@ -219,12 +219,19 @@ export function DocumentProvider({ children }) {
     }
 
     const unsubscribeRequests = onSnapshot(q, (snapshot) => {
-      if (snapshot.empty && userProfile.role === 'super_admin') {
-        const initialRequests = createInitialDocumentState(currentUser.uid).verificationRequests;
-        initialRequests.forEach(async (req) => {
-          const { id, ...data } = req;
-          await addDoc(collection(db, 'verificationRequests'), data);
-        });
+      if (snapshot.empty) {
+        if (userProfile.role === 'super_admin' || userProfile.role === 'student') {
+          const initialRequests = createInitialDocumentState(currentUser.uid).verificationRequests;
+          initialRequests.forEach(async (req) => {
+            const { id, ...data } = req;
+            const mappedData = {
+              ...data,
+              ownerEmail: userProfile.email || currentUser.email || 'student@localhost',
+              ownerId: currentUser.uid,
+            };
+            await addDoc(collection(db, 'verificationRequests'), mappedData);
+          });
+        }
       } else {
         const requests = [];
         snapshot.forEach((doc) => {

@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 
 const credentialTypeOptions = [
+  'Passport',
+  'Academic Essay',
   'Degree',
   'Transcript',
   'Medical License',
@@ -31,6 +33,8 @@ const credentialTypeOptions = [
 ];
 
 const CREDENTIAL_TYPE_MAP = {
+  'Passport': 'Government',
+  'Academic Essay': 'University',
   'Degree': 'University',
   'Transcript': 'University',
   'Medical License': 'Hospital',

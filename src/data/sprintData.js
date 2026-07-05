@@ -1,6 +1,20 @@
 export const userVerificationRequests = [
   {
     requestedOrganization: 'Northbridge University',
+    purpose: 'Admissions Validation',
+    credentialType: 'Academic Essay',
+    requestDate: 'Jun 15, 2026',
+    status: 'Completed',
+  },
+  {
+    requestedOrganization: 'City Civic Office',
+    purpose: 'Identity Verification',
+    credentialType: 'Passport',
+    requestDate: 'Jun 10, 2026',
+    status: 'Completed',
+  },
+  {
+    requestedOrganization: 'Northbridge University',
     purpose: 'Degree Verification',
     credentialType: 'Degree Certificate',
     requestDate: 'Jul 02, 2026',
