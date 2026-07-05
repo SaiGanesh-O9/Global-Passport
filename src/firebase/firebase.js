@@ -11,7 +11,14 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-export const app = initializeApp(firebaseConfig);
+export const app = initializeApp({
+  ...firebaseConfig,
+  apiKey: firebaseConfig.apiKey || "AIzaSyDummyKeyForBuildAndVercelPreview",
+  authDomain: firebaseConfig.authDomain || "veriflash-f7655.firebaseapp.com",
+  projectId: firebaseConfig.projectId || "veriflash-f7655",
+  messagingSenderId: firebaseConfig.messagingSenderId || "331097483156",
+  appId: firebaseConfig.appId || "1:331097483156:web:3096ccebe3869daa3c9181"
+});
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 
