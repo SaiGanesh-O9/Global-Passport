@@ -35,8 +35,9 @@ service firebase.storage {
 
       // Access (Read/Delete) is restricted based on Firestore request ownership and verification assignment
       allow read: if isAuthenticated() && (
+        !firestore.exists(/databases/(default)/documents/verificationRequests/$(requestId)) ||
         getRequestData(requestId).ownerId == request.auth.uid ||
-        isOrgVerifier(getRequestData(requestId).organization.id) ||
+        isOrgVerifier(getRequestData(requestId).organizationId) ||
         isSuperAdmin()
       );
       

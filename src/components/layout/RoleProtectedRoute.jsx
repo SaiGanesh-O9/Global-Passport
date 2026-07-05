@@ -1,12 +1,14 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.js';
+import { useDocuments } from '../../hooks/useDocuments.js';
 import { Loader2 } from 'lucide-react';
 
 export default function RoleProtectedRoute({ children, allowedRoles }) {
-  const { role, isAuthenticated, loading } = useAuth();
+  const { role, isAuthenticated, loading, authReady } = useAuth();
+  const { ready: documentsReady } = useDocuments();
 
-  // Wait until Auth and Firestore profile finishes loading
-  if (loading) {
+  // Wait until Auth profile and Firestore document hydration are fully ready
+  if (loading || !authReady || !documentsReady) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <Loader2 className="h-8 w-8 text-blue-700 animate-spin" />

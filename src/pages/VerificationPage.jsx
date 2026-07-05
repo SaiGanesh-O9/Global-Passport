@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import MarketingNav from '../components/layout/MarketingNav.jsx';
 import Button from '../components/ui/Button.jsx';
 import Card from '../components/ui/Card.jsx';
+import StatusBadge from '../components/ui/StatusBadge.jsx';
 import { isShareableStatus, VERIFICATION_STATUS } from '../context/documentUtils.js';
 import { useDocuments } from '../hooks/useDocuments.js';
 import {
@@ -145,17 +146,17 @@ export default function VerificationPage() {
   // Loading Screen Overlay
   if (checking) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
+      <div className="min-h-screen bg-slate-900 dark:bg-[#090a0f] flex flex-col items-center justify-center text-white">
         <div className="flex flex-col items-center gap-4">
-          <div className="flex items-center gap-2 text-2xl font-bold text-blue-400">
-            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-blue-700 text-white">
+          <div className="flex items-center gap-2.5 text-2xl font-extrabold text-blue-450">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white">
               <FileCheck2 className="h-6 w-6" />
             </span>
             VeriFlash
           </div>
           <div className="flex items-center gap-3 mt-6">
             <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
-            <p className="text-sm font-semibold tracking-wide text-slate-300">Verifying Credential...</p>
+            <p className="text-xs font-bold tracking-wider text-slate-350 uppercase">Verifying Credential...</p>
           </div>
         </div>
       </div>
@@ -165,56 +166,58 @@ export default function VerificationPage() {
   // Modal Overlays
   if (showModal) {
     return (
-      <div className="min-h-screen bg-slate-50 relative flex items-center justify-center px-4 backdrop-blur-md bg-slate-950/40">
+      <div className="min-h-screen bg-slate-50 dark:bg-[#090a0f] relative flex items-center justify-center px-4 backdrop-blur-sm bg-slate-950/60 dark:bg-black/80 transition-theme">
         <div
           ref={modalRef}
           role="dialog"
           aria-modal="true"
-          className={`w-full max-w-lg bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden transition-all duration-300 transform ${
+          className={`w-full max-w-lg bg-white dark:bg-[#12131a] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-805/40 overflow-hidden transition-all duration-200 transform ${
             animateShow ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
           }`}
         >
           {isApproved && (
             <div>
-              <div className="bg-emerald-50 px-6 py-6 border-b border-emerald-100 text-center">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+              <div className="bg-emerald-500/10 px-6 py-6 border-b border-emerald-500/20 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-450 border border-emerald-500/20">
                   <CheckCircle2 className="h-6 w-6" />
                 </div>
-                <h2 className="mt-3 text-lg font-bold text-emerald-900">✅ VERIFIED CREDENTIAL</h2>
+                <h2 className="mt-3.5 text-sm font-bold tracking-wider text-emerald-800 dark:text-emerald-400 uppercase">✅ VERIFIED CREDENTIAL</h2>
               </div>
+              
               <div className="px-6 py-6 space-y-4">
-                <div className="grid grid-cols-[1fr_2fr] gap-4 text-sm border-b border-slate-100 pb-3">
-                  <span className="text-slate-500 font-medium">Verification ID</span>
-                  <span className="text-slate-900 font-bold">{request.verificationId}</span>
+                <div className="grid grid-cols-[1fr_2fr] gap-4 text-xs border-b border-slate-200/50 dark:border-slate-800/30 pb-3">
+                  <span className="text-slate-500 dark:text-slate-450 font-bold uppercase tracking-wider text-[10px]">Verification ID</span>
+                  <span className="text-slate-900 dark:text-white font-extrabold">{request.verificationId}</span>
                 </div>
-                <div className="grid grid-cols-[1fr_2fr] gap-4 text-sm border-b border-slate-100 pb-3">
-                  <span className="text-slate-500 font-medium">Credential Type</span>
-                  <span className="text-slate-900 font-semibold">{request.credentialType}</span>
+                <div className="grid grid-cols-[1fr_2fr] gap-4 text-xs border-b border-slate-200/50 dark:border-slate-800/30 pb-3">
+                  <span className="text-slate-500 dark:text-slate-450 font-bold uppercase tracking-wider text-[10px]">Credential Type</span>
+                  <span className="text-slate-900 dark:text-slate-100 font-bold">{request.credentialType}</span>
                 </div>
-                <div className="grid grid-cols-[1fr_2fr] gap-4 text-sm border-b border-slate-100 pb-3">
-                  <span className="text-slate-500 font-medium">Owner</span>
-                  <span className="text-slate-900 font-semibold">{request.ownerName || request.owner}</span>
+                <div className="grid grid-cols-[1fr_2fr] gap-4 text-xs border-b border-slate-200/50 dark:border-slate-800/30 pb-3">
+                  <span className="text-slate-500 dark:text-slate-450 font-bold uppercase tracking-wider text-[10px]">Owner</span>
+                  <span className="text-slate-900 dark:text-slate-100 font-bold">{request.ownerName || request.owner}</span>
                 </div>
-                <div className="grid grid-cols-[1fr_2fr] gap-4 text-sm border-b border-slate-100 pb-3">
-                  <span className="text-slate-500 font-medium">Issued By</span>
-                  <span className="text-slate-900 font-semibold">{request.organization?.name || request.requestedOrganization}</span>
+                <div className="grid grid-cols-[1fr_2fr] gap-4 text-xs border-b border-slate-200/50 dark:border-slate-800/30 pb-3">
+                  <span className="text-slate-500 dark:text-slate-450 font-bold uppercase tracking-wider text-[10px]">Issued By</span>
+                  <span className="text-slate-900 dark:text-slate-100 font-bold">{request.organization?.name || request.requestedOrganization}</span>
                 </div>
-                <div className="grid grid-cols-[1fr_2fr] gap-4 text-sm border-b border-slate-100 pb-3">
-                  <span className="text-slate-500 font-medium">Verified On</span>
-                  <span className="text-slate-900 font-semibold">{request.verifiedAt}</span>
+                <div className="grid grid-cols-[1fr_2fr] gap-4 text-xs border-b border-slate-200/50 dark:border-slate-800/30 pb-3">
+                  <span className="text-slate-500 dark:text-slate-455 font-bold uppercase tracking-wider text-[10px]">Verified On</span>
+                  <span className="text-slate-900 dark:text-slate-100 font-bold">{request.verifiedAt}</span>
                 </div>
-                <div className="grid grid-cols-[1fr_2fr] gap-4 text-sm pb-2">
-                  <span className="text-slate-500 font-medium">Verification Hash</span>
-                  <span className="text-slate-900 font-mono text-xs truncate">
-                    {request.hash ? `${request.hash.slice(0, 10)}...${request.hash.slice(-6)}` : ''}
+                <div className="grid grid-cols-[1fr_2fr] gap-4 text-xs pb-1">
+                  <span className="text-slate-500 dark:text-slate-455 font-bold uppercase tracking-wider text-[10px]">Verification Hash</span>
+                  <span className="text-slate-900 dark:text-slate-100 font-mono text-[11px] truncate" title={request.hash}>
+                    {request.hash ? `${request.hash.slice(0, 12)}...${request.hash.slice(-8)}` : ''}
                   </span>
                 </div>
-                <div className="border-t border-slate-100 pt-4 flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-700">
-                  <CheckCircle2 className="h-4 w-4" />
+                <div className="border-t border-slate-200/50 dark:border-slate-800/40 pt-4 flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-450">
+                  <CheckCircle2 className="h-4.5 w-4.5" />
                   <span>✔ Verified by VeriFlash</span>
                 </div>
               </div>
-              <div className="bg-slate-50 px-6 py-4 flex flex-col sm:flex-row gap-2 justify-end border-t border-slate-100">
+
+              <div className="bg-slate-50/50 dark:bg-slate-900/10 px-6 py-4 flex flex-col sm:flex-row gap-2 justify-end border-t border-slate-200/50 dark:border-slate-800/45">
                 <Button onClick={handleClose} variant="secondary">
                   Close
                 </Button>
@@ -227,18 +230,20 @@ export default function VerificationPage() {
 
           {isPending && (
             <div>
-              <div className="bg-amber-50 px-6 py-6 border-b border-amber-100 text-center">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+              <div className="bg-amber-500/10 px-6 py-6 border-b border-amber-500/20 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-450 border border-amber-500/20">
                   <AlertCircle className="h-6 w-6" />
                 </div>
-                <h2 className="mt-3 text-lg font-bold text-amber-900">🟡 VERIFICATION IN PROGRESS</h2>
+                <h2 className="mt-3.5 text-sm font-bold tracking-wider text-amber-800 dark:text-amber-450 uppercase">🟡 VERIFICATION IN PROGRESS</h2>
               </div>
-              <div className="px-6 py-6 space-y-4">
-                <p className="text-sm text-slate-600 leading-relaxed text-center">
+              
+              <div className="px-6 py-8 space-y-4 text-center">
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold leading-relaxed max-w-sm mx-auto">
                   This credential has been submitted but has not yet been verified by the issuing organization.
                 </p>
               </div>
-              <div className="bg-slate-50 px-6 py-4 flex flex-col sm:flex-row gap-2 justify-center border-t border-slate-100">
+
+              <div className="bg-slate-50/50 dark:bg-slate-900/10 px-6 py-4 flex flex-col sm:flex-row gap-2 justify-center border-t border-slate-200/50 dark:border-slate-800/45">
                 <Button onClick={handleClose} variant="secondary">
                   Close
                 </Button>
@@ -251,25 +256,27 @@ export default function VerificationPage() {
 
           {isInvalid && (
             <div>
-              <div className="bg-red-50 px-6 py-6 border-b border-red-100 text-center">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-700">
+              <div className="bg-rose-500/10 px-6 py-6 border-b border-rose-500/20 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-455 border border-rose-500/20">
                   <XCircle className="h-6 w-6" />
                 </div>
-                <h2 className="mt-3 text-lg font-bold text-red-900">❌ CREDENTIAL NOT VERIFIED</h2>
+                <h2 className="mt-3.5 text-sm font-bold tracking-wider text-rose-800 dark:text-rose-450 uppercase">❌ CREDENTIAL NOT VERIFIED</h2>
               </div>
+              
               <div className="px-6 py-6 space-y-4">
-                <div className="grid grid-cols-[1fr_2fr] gap-4 text-sm border-b border-slate-100 pb-3">
-                  <span className="text-slate-500 font-medium">Verification ID</span>
-                  <span className="text-slate-900 font-bold">{verificationId || 'N/A'}</span>
+                <div className="grid grid-cols-[1fr_2fr] gap-4 text-xs border-b border-slate-200/50 dark:border-slate-800/30 pb-3">
+                  <span className="text-slate-500 dark:text-slate-455 font-bold uppercase tracking-wider text-[10px]">Verification ID</span>
+                  <span className="text-slate-900 dark:text-white font-extrabold">{verificationId || 'N/A'}</span>
                 </div>
-                <div className="grid grid-cols-[1fr_2fr] gap-4 text-sm pb-2">
-                  <span className="text-slate-500 font-medium">Reason</span>
-                  <span className="text-red-700 font-bold font-semibold">
+                <div className="grid grid-cols-[1fr_2fr] gap-4 text-xs pb-1">
+                  <span className="text-slate-500 dark:text-slate-455 font-bold uppercase tracking-wider text-[10px]">Reason</span>
+                  <span className="text-rose-650 dark:text-rose-450 font-bold font-semibold uppercase text-[11px] tracking-wide">
                     {!request ? 'Not Found' : 'Revoked'}
                   </span>
                 </div>
               </div>
-              <div className="bg-slate-50 px-6 py-4 flex flex-col sm:flex-row gap-2 justify-center border-t border-slate-100">
+
+              <div className="bg-slate-50/50 dark:bg-slate-900/10 px-6 py-4 flex flex-col sm:flex-row gap-2 justify-center border-t border-slate-200/50 dark:border-slate-800/45">
                 <Button onClick={handleClose} variant="secondary">
                   Close
                 </Button>
@@ -284,7 +291,7 @@ export default function VerificationPage() {
     );
   }
 
-  // Fallback if modal closed but somehow page reveal fails (should never hit this)
+  // Fallback if modal closed but reveal fails (should never hit this)
   if (!revealPage || !request || !isApproved) {
     return null;
   }
@@ -293,38 +300,36 @@ export default function VerificationPage() {
 
   // Existing Page Reveal Layout
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#090a0f] text-slate-800 dark:text-slate-200 transition-theme">
       <MarketingNav />
       <main className="mx-auto max-w-4xl px-5 py-16 sm:px-6 lg:px-8">
-        <Card className="overflow-hidden">
-          <div className="bg-emerald-600 px-6 py-10 text-center text-white sm:px-10">
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white text-emerald-600">
+        <Card className="overflow-hidden bg-white dark:bg-[#12131a] border border-slate-200/80 dark:border-slate-800/40 shadow-sm">
+          <div className="bg-emerald-600 dark:bg-emerald-650 px-6 py-12 text-center text-white sm:px-10">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white text-emerald-600 shadow-lg shadow-black/10">
               <CheckCircle2 className="h-12 w-12" />
             </div>
-            <h1 className="mt-6 text-4xl font-bold">Verified Credential</h1>
-            <p className="mt-3 text-emerald-50">
+            <h1 className="mt-6 text-3xl font-extrabold tracking-tight">Verified Credential</h1>
+            <p className="mt-2 text-emerald-100 text-xs font-bold uppercase tracking-wider">
               Verified through VeriFlash
             </p>
           </div>
 
           <div className="p-6 sm:p-10">
-            <div className="mb-8 flex items-center gap-3 rounded-lg border border-emerald-100 bg-emerald-50 p-4">
-              <FileCheck2 className="h-6 w-6 text-emerald-700" />
-              <p className="font-semibold text-emerald-800">
-                Verification details are ready to share.
-              </p>
+            <div className="mb-8 flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-xs font-bold text-emerald-800 dark:text-emerald-400">
+              <FileCheck2 className="h-5 w-5 text-current" />
+              <p>Verification details are ready to share.</p>
             </div>
 
             <dl className="grid gap-4 sm:grid-cols-2">
               {verificationDetails.map((detail) => (
                 <div
-                  className="rounded-lg border border-slate-200 bg-slate-50 p-4"
+                  className="rounded-xl border border-slate-200 dark:border-slate-805 bg-slate-50 dark:bg-slate-900/30 p-4"
                   key={detail.label}
                 >
-                  <dt className="text-sm font-bold uppercase text-slate-500">
+                  <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-450">
                     {detail.label}
                   </dt>
-                  <dd className="mt-2 font-semibold text-slate-950">
+                  <dd className="mt-2 text-xs font-bold text-slate-950 dark:text-white break-all">
                     {detail.value}
                   </dd>
                 </div>
@@ -332,24 +337,24 @@ export default function VerificationPage() {
             </dl>
 
             {/* Verification Timeline */}
-            <div className="mt-8 border-t border-slate-200 pt-8">
-              <h3 className="text-lg font-bold text-slate-950">Verification Timeline</h3>
-              <div className="mt-6 relative border-l-2 border-slate-200 pl-6 ml-3 space-y-6">
+            <div className="mt-8 border-t border-slate-200/80 dark:border-slate-800/40 pt-8">
+              <h3 className="text-sm font-bold text-slate-950 dark:text-white uppercase tracking-wider">Verification Timeline</h3>
+              <div className="mt-6 relative border-l-2 border-slate-200 dark:border-slate-800 pl-6 ml-3 space-y-6">
                 {request.timeline?.map((step, idx) => (
                   <div key={idx} className="relative">
-                    <span className="absolute -left-[31px] top-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-700 text-white ring-4 ring-white">
+                    <span className="absolute -left-[31px] top-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-blue-600 text-white ring-4 ring-white dark:ring-[#12131a] shadow-sm">
                       <span className="h-1.5 w-1.5 rounded-full bg-white" />
                     </span>
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">{step.label}</p>
-                      <p className="text-xs text-slate-500 mt-1">{step.date} — Status: {step.status}</p>
+                      <p className="text-xs font-bold text-slate-900 dark:text-slate-200">{step.label}</p>
+                      <p className="text-[10px] text-slate-450 dark:text-slate-500 font-semibold mt-1">{step.date} — Status: {step.status}</p>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row pt-4">
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row pt-4 border-t border-slate-200/40 dark:border-slate-800/20">
               <Button icon={Download} variant="success">
                 Download Certificate
               </Button>

@@ -7,7 +7,7 @@ import MarketingNav from '../components/layout/MarketingNav.jsx';
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#090a0f] text-slate-800 dark:text-slate-200 transition-theme">
       <MarketingNav />
       <main>
         <HeroSection />

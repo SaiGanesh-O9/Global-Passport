@@ -1,7 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { doc, onSnapshot, setDoc, getDoc, serverTimestamp, collection } from 'firebase/firestore';
-import { db, functions, auth } from '../firebase/firebase.js';
-import { httpsCallable } from 'firebase/functions';
+import { db, auth, doc, getDoc, setDoc, serverTimestamp } from '../firebase/firebase.js';
 import { signInAnonymously } from 'firebase/auth';
 import {
   subscribeToAuthChanges,
@@ -15,95 +13,50 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
-    let unsubscribeProfile = null;
-
-    const unsubscribeAuth = subscribeToAuthChanges((user) => {
-      if (unsubscribeProfile) {
-        unsubscribeProfile();
-        unsubscribeProfile = null;
-      }
-
+    const unsubscribeAuth = subscribeToAuthChanges(async (user) => {
       if (user) {
-        let finalCurrentUser = user;
-        const devSessionStr = localStorage.getItem('dev_user');
-        if (user.isAnonymous && devSessionStr) {
-          try {
-            const devSession = JSON.parse(devSessionStr);
-            if (devSession.currentUser.uid === user.uid) {
-              finalCurrentUser = {
-                uid: user.uid,
-                email: devSession.currentUser.email,
-                displayName: devSession.currentUser.displayName,
-                isAnonymous: true
-              };
-            }
-          } catch (e) {
-            console.error("Failed to parse dev session:", e);
-          }
-        }
-        setCurrentUser(finalCurrentUser);
+        setCurrentUser(user);
 
-        const userRef = doc(db, 'users', user.uid);
-        unsubscribeProfile = onSnapshot(userRef, async (docSnap) => {
-          const isSuperAdminEmail = finalCurrentUser.email === import.meta.env.VITE_SUPER_ADMIN_EMAIL;
-          if (!docSnap.exists() || (isSuperAdminEmail && (docSnap.data()?.role !== 'super_admin' || docSnap.data()?.status !== 'active'))) {
-            try {
-              const bootstrapFn = httpsCallable(functions, 'bootstrapSuperAdmin');
-              await bootstrapFn();
-            } catch (err) {
-              console.error("Super Admin Bootstrap failed:", err);
-              if (!docSnap.exists()) {
-                const newProfile = {
-                  name: user.displayName || user.email.split('@')[0],
-                  email: user.email,
-                  role: isSuperAdminEmail ? 'super_admin' : 'pending',
-                  organizationId: null,
-                  organizationName: null,
-                  organizationRole: null,
-                  status: isSuperAdminEmail ? 'active' : 'pending',
-                  createdAt: serverTimestamp(),
-                  lastLogin: serverTimestamp(),
-                };
-                await setDoc(userRef, newProfile);
-              }
-            }
+        try {
+          const userRef = doc(db, 'users', user.uid);
+          const docSnap = await getDoc(userRef);
+
+          if (!docSnap.exists()) {
+            const isSuperAdminEmail = user.email === import.meta.env.VITE_SUPER_ADMIN_EMAIL;
+            const newProfile = {
+              name: user.displayName || user.email?.split('@')[0] || 'Anonymous User',
+              email: user.email || `anonymous-${user.uid.substring(0, 5)}@localhost`,
+              role: isSuperAdminEmail ? 'super_admin' : 'student',
+              organizationId: null,
+              organizationName: null,
+              organizationRole: null,
+              status: 'active',
+              createdAt: serverTimestamp(),
+              lastLogin: serverTimestamp(),
+            };
+            await setDoc(userRef, newProfile);
+            setUserProfile(newProfile);
           } else {
             setUserProfile(docSnap.data());
-            setLoading(false);
           }
-        }, (error) => {
+        } catch (error) {
           console.error("User profile load error:", error);
+        } finally {
+          setAuthReady(true);
           setLoading(false);
-        });
-      } else {
-        // Session Priority Check: Restore local development session if no Firebase user session exists
-        const devSession = localStorage.getItem('dev_user');
-        if (devSession) {
-          try {
-            const { currentUser: devUser, userProfile: devProfile } = JSON.parse(devSession);
-            setCurrentUser(devUser);
-            setUserProfile(devProfile);
-            setLoading(false);
-            return;
-          } catch (e) {
-            console.error('Failed to parse dev user from localStorage:', e);
-          }
         }
-
+      } else {
         setCurrentUser(null);
         setUserProfile(null);
+        setAuthReady(true);
         setLoading(false);
       }
     });
 
-    return () => {
-      unsubscribeAuth();
-      if (unsubscribeProfile) {
-        unsubscribeProfile();
-      }
-    };
+    return () => unsubscribeAuth();
   }, []);
 
   const login = async (email) => {
@@ -112,10 +65,11 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     setLoading(true);
-    localStorage.removeItem('dev_user');
+    setAuthReady(false);
     setCurrentUser(null);
     setUserProfile(null);
     await authLogout();
+    setAuthReady(true);
     setLoading(false);
   };
 
@@ -125,6 +79,7 @@ export function AuthProvider({ children }) {
 
     try {
       setLoading(true);
+      setAuthReady(false);
       const cred = await signInAnonymously(auth);
       const authUid = cred.user.uid;
 
@@ -159,8 +114,6 @@ export function AuthProvider({ children }) {
       if (!profile) throw new Error('Invalid developer role type selected');
 
       const userRef = doc(db, 'users', profile.uid);
-      const docSnap = await getDoc(userRef);
-
       const profileData = {
         name: profile.name,
         email: profile.email,
@@ -174,24 +127,15 @@ export function AuthProvider({ children }) {
       };
 
       await setDoc(userRef, profileData);
-
-      const currentUserObj = {
-        uid: profile.uid,
-        email: profile.email,
-        displayName: profile.name,
-      };
-
-      localStorage.setItem('dev_user', JSON.stringify({
-        currentUser: currentUserObj,
-        userProfile: profileData
-      }));
-
-      setCurrentUser(currentUserObj);
+      
+      // Update state synchronously before clearing loading to prevent flash of undefined role
+      setCurrentUser(cred.user);
       setUserProfile(profileData);
+      setAuthReady(true);
       setLoading(false);
-      return profileData;
     } catch (err) {
       console.error(err);
+      setAuthReady(true);
       setLoading(false);
       throw err;
     }
@@ -201,6 +145,7 @@ export function AuthProvider({ children }) {
     currentUser,
     userProfile,
     loading,
+    authReady,
     login,
     logout,
     loginAsDeveloper: import.meta.env.DEV ? loginAsDeveloper : undefined,

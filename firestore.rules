@@ -40,13 +40,13 @@ service cloud.firestore {
     match /verificationRequests/{requestId} {
       allow read: if isAuthenticated() && (
         resource.data.ownerId == request.auth.uid ||
-        isOrgVerifier(resource.data.organization.id) ||
+        isOrgVerifier(resource.data.organizationId) ||
         isSuperAdmin()
       );
       allow create: if isAuthenticated();
       allow update: if isAuthenticated() && (
         resource.data.ownerId == request.auth.uid ||
-        isOrgVerifier(resource.data.organization.id) ||
+        isOrgVerifier(resource.data.organizationId) ||
         isSuperAdmin()
       );
       allow delete: if isSuperAdmin();
@@ -63,6 +63,22 @@ service cloud.firestore {
     match /settings/{settingsId} {
       allow read: if isAuthenticated();
       allow write: if isSuperAdmin();
+    }
+
+    // Activity Logs rules: read owned or verifier or admin, create authenticated, no delete
+    match /activityLogs/{activityId} {
+      allow read: if isAuthenticated() && (
+        resource.data.ownerId == request.auth.uid ||
+        isSuperAdmin() ||
+        getUserData().role == 'organization'
+      );
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    // AI Feedback rules: create authenticated
+    match /aiFeedback/{feedbackId} {
+      allow read: if isSuperAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
     }
   }
 }

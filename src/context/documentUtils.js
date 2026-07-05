@@ -66,3 +66,13 @@ export function createTimelineEntry(label, status, date = new Date()) {
 export function isShareableStatus(status) {
   return SHAREABLE_STATUSES.includes(status);
 }
+
+export function resolveUserRole(userProfile) {
+  if (!userProfile) return { isSuperAdmin: false, isOrgVerifier: false, isStudent: false };
+  const role = userProfile.role;
+  return {
+    isSuperAdmin: role === 'super_admin',
+    isOrgVerifier: role === 'organization',
+    isStudent: role === 'student' || role === 'employer',
+  };
+}

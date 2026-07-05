@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import Card from '../ui/Card.jsx';
 import SectionHeader from '../ui/SectionHeader.jsx';
+import StatusBadge from '../ui/StatusBadge.jsx';
 
 const ecosystemCards = [
   {
@@ -50,14 +51,14 @@ function EcosystemFeatureCard({ description, icon, title }) {
   const IconComponent = icon;
 
   return (
-    <Card className="p-5 transition hover:-translate-y-1 hover:shadow-lg hover:shadow-blue-100">
+    <Card className="p-5 border border-slate-200/60 dark:border-slate-805 bg-white dark:bg-[#12131a]" hoverEffect={true}>
       <div className="flex items-start gap-4">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-700 ring-1 ring-blue-100">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-600/10 text-blue-700 dark:text-blue-400 border border-blue-100/50 dark:border-blue-800/20">
           <IconComponent className="h-5 w-5" />
         </span>
         <div>
-          <h3 className="font-bold text-slate-950">{title}</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
+          <h3 className="font-bold text-slate-950 dark:text-white text-sm uppercase tracking-wider">{title}</h3>
+          <p className="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400 font-semibold">{description}</p>
         </div>
       </div>
     </Card>
@@ -66,17 +67,14 @@ function EcosystemFeatureCard({ description, icon, title }) {
 
 function VerificationBadge() {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">
-      <CheckCircle2 className="h-3.5 w-3.5" />
-      Verified
-    </span>
+    <StatusBadge status="Approved" />
   );
 }
 
 function NetworkArrow() {
   return (
-    <div className="flex justify-center py-3 text-blue-400">
-      <ArrowDown className="h-6 w-6 animate-pulse" />
+    <div className="flex justify-center py-2.5 text-blue-400/80 dark:text-blue-500/40">
+      <ArrowDown className="h-5 w-5 animate-pulse" />
     </div>
   );
 }
@@ -84,9 +82,9 @@ function NetworkArrow() {
 function NetworkCard({ children, highlighted = false }) {
   if (highlighted) {
     return (
-      <div className="rounded-lg border border-blue-300 bg-blue-700 p-6 text-center text-white shadow-2xl shadow-blue-500/30 ring-4 ring-blue-100">
-        <p className="text-2xl font-black tracking-wide">VERIFLASH</p>
-        <p className="mt-2 text-sm font-semibold text-blue-100">
+      <div className="rounded-xl border border-blue-500/20 bg-blue-600 dark:bg-blue-600 p-5 text-center text-white shadow-xl dark:shadow-black/30">
+        <p className="text-xl font-extrabold tracking-wider">VERIFLASH</p>
+        <p className="mt-1.5 text-xs font-bold text-blue-100/90 uppercase tracking-wide">
           Universal Verification Layer
         </p>
       </div>
@@ -94,8 +92,8 @@ function NetworkCard({ children, highlighted = false }) {
   }
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="font-bold text-slate-950">{children}</p>
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200/80 dark:border-slate-800/40 bg-white dark:bg-[#171822] p-4 shadow-sm">
+      <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{children}</p>
       <VerificationBadge />
     </div>
   );
@@ -103,7 +101,7 @@ function NetworkCard({ children, highlighted = false }) {
 
 function NetworkDiagram() {
   return (
-    <Card className="p-5 sm:p-6">
+    <Card className="p-5 sm:p-6 bg-slate-50/50 dark:bg-[#12131a]/40 border border-slate-200/60 dark:border-slate-800/40">
       <div className="space-y-0">
         {networkNodes.slice(0, 3).map((node) => (
           <div key={node}>
@@ -128,9 +126,9 @@ function NetworkDiagram() {
 
 function DifferenceBanner() {
   return (
-    <div className="rounded-lg bg-blue-700 p-6 text-white shadow-xl shadow-blue-700/20">
-      <h3 className="text-xl font-bold">Why is this different?</h3>
-      <div className="mt-3 space-y-3 text-sm leading-6 text-blue-50">
+    <div className="rounded-xl bg-blue-600 dark:bg-blue-600/10 border border-blue-500/20 dark:border-blue-500/20 p-6 text-white dark:text-blue-400 shadow-lg">
+      <h3 className="text-sm font-bold uppercase tracking-wider text-white dark:text-blue-400">Why is this different?</h3>
+      <div className="mt-3 space-y-2 text-xs leading-relaxed text-blue-50 dark:text-slate-300 font-semibold">
         <p>Existing platforms primarily focus on storing or issuing credentials.</p>
         <p>
           VeriFlash focuses on reusable verification, allowing trusted
@@ -144,7 +142,7 @@ function DifferenceBanner() {
 
 export default function EcosystemSection() {
   return (
-    <section className="bg-white px-5 py-20 sm:px-6 lg:px-8">
+    <section className="bg-white dark:bg-[#090a0f] text-slate-800 dark:text-slate-200 px-5 py-20 sm:px-6 lg:px-8 transition-theme">
       <div className="mx-auto max-w-7xl">
         <SectionHeader
           eyebrow="Built to connect"
@@ -159,13 +157,13 @@ export default function EcosystemSection() {
 
         <div className="mt-14 grid gap-10 lg:grid-cols-[1fr_0.95fr] lg:items-start">
           <div>
-            <p className="text-sm font-bold uppercase text-emerald-700">
+            <p className="text-xs font-bold uppercase tracking-wider text-emerald-650 dark:text-emerald-400">
               Supports future interoperability
             </p>
-            <h3 className="mt-3 text-3xl font-bold text-slate-950">
+            <h3 className="mt-3 text-2xl font-extrabold text-slate-950 dark:text-white tracking-tight">
               Designed for Integration
             </h3>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
+            <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-500 dark:text-slate-400 font-medium">
               VeriFlash is designed for integration with trusted organizations
               and existing credential ecosystems through secure APIs and
               standardized verification workflows. It can help organizations

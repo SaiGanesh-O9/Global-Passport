@@ -6,17 +6,20 @@ import {
   generateDocumentHash,
   generateVerificationId,
   createTimelineEntry,
-  MOCK_USER,
 } from './documentUtils.js';
 
-function seedUserVerificationRequests() {
+const ORG_MAP = {
+  'Northbridge University': { id: 'org-northbridge', name: 'Northbridge University', type: 'University' },
+  'Apollo Hospitals': { id: 'org-apollo', name: 'Apollo Hospitals', type: 'Hospital' },
+  'Infosys': { id: 'org-infosys', name: 'Infosys', type: 'Employer' },
+};
+
+function seedUserVerificationRequests(uid) {
   return userVerificationRequests.map((request, index) => {
-    // Map 'Completed' seed status to 'Approved'
     const status = request.status === 'Completed' ? VERIFICATION_STATUS.APPROVED : request.status;
     const isApproved = status === VERIFICATION_STATUS.APPROVED;
     const isRejected = status === VERIFICATION_STATUS.REJECTED;
 
-    // Timeline setup
     const timeline = [
       createTimelineEntry('Verification Request Submitted', VERIFICATION_STATUS.PENDING, new Date(2026, 5, 28))
     ];
@@ -31,15 +34,25 @@ function seedUserVerificationRequests() {
       );
     }
 
+    const org = ORG_MAP[request.requestedOrganization] || { id: 'org-northbridge', name: request.requestedOrganization, type: 'University' };
+
     return {
       id: createDocumentId(),
       credentialType: request.credentialType,
       requestedOrganization: request.requestedOrganization,
+      organization: org,
       purpose: request.purpose || 'Verification',
       fileName: `${request.credentialType.replace(/\s+/g, '-').toLowerCase()}.pdf`,
       requestDate: request.requestDate,
       status: status,
-      owner: MOCK_USER,
+      owner: {
+        uid: uid || 'dev-user-uid',
+        name: 'Development User',
+        email: 'dev-user@localhost',
+      },
+      ownerId: uid || 'dev-user-uid',
+      ownerName: 'Development User',
+      ownerEmail: 'dev-user@localhost',
       timeline,
       ...(isApproved
         ? {
@@ -52,24 +65,35 @@ function seedUserVerificationRequests() {
   });
 }
 
-function seedOrganizationVerificationRequests() {
-  return organizationInboxRequests.map((request) => ({
-    id: createDocumentId(),
-    credentialType: request.credentialType,
-    requestedOrganization: request.requestedOrganization,
-    purpose: 'Verification',
-    fileName: `${request.credentialType.replace(/\s+/g, '-').toLowerCase()}.pdf`,
-    requestDate: request.requestDate,
-    status: VERIFICATION_STATUS.PENDING,
-    owner: request.requester,
-    timeline: [
-      createTimelineEntry('Verification Request Submitted', VERIFICATION_STATUS.PENDING, new Date(2026, 6, 1))
-    ],
-  }));
+function seedOrganizationVerificationRequests(uid) {
+  return organizationInboxRequests.map((request) => {
+    const org = ORG_MAP[request.requestedOrganization] || { id: 'org-northbridge', name: request.requestedOrganization, type: 'University' };
+    return {
+      id: createDocumentId(),
+      credentialType: request.credentialType,
+      requestedOrganization: request.requestedOrganization,
+      organization: org,
+      purpose: 'Verification',
+      fileName: `${request.credentialType.replace(/\s+/g, '-').toLowerCase()}.pdf`,
+      requestDate: request.requestDate,
+      status: VERIFICATION_STATUS.PENDING,
+      owner: {
+        uid: 'some-student-uid',
+        name: request.requester,
+        email: `${request.requester.toLowerCase().replace(/\s+/g, '')}@localhost`,
+      },
+      ownerId: 'some-student-uid',
+      ownerName: request.requester,
+      ownerEmail: `${request.requester.toLowerCase().replace(/\s+/g, '')}@localhost`,
+      timeline: [
+        createTimelineEntry('Verification Request Submitted', VERIFICATION_STATUS.PENDING, new Date(2026, 6, 1))
+      ],
+    };
+  });
 }
 
-export function createInitialDocumentState() {
+export function createInitialDocumentState(uid) {
   return {
-    verificationRequests: [...seedUserVerificationRequests(), ...seedOrganizationVerificationRequests()],
+    verificationRequests: [...seedUserVerificationRequests(uid), ...seedOrganizationVerificationRequests(uid)],
   };
 }

@@ -1,21 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  collection,
-  onSnapshot,
-  doc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  getDoc,
-  arrayUnion,
-  serverTimestamp,
-} from 'firebase/firestore';
-import { db, functions } from '../firebase/firebase.js';
-import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '../hooks/useAuth.js';
+import { useDocuments } from '../hooks/useDocuments.js';
+import { useDocumentActions } from '../hooks/useDocumentActions.js';
 import Button from '../components/ui/Button.jsx';
 import Card from '../components/ui/Card.jsx';
+import ThemeToggle from '../components/ui/ThemeToggle.jsx';
 import {
   Users as UsersIcon,
   Building2,
@@ -47,27 +37,34 @@ import {
 export default function AdminPortal() {
   const navigate = useNavigate();
   const { logout, currentUser } = useAuth();
+  const {
+    updateUserRoleStatus,
+    updateOrganization,
+    createOrganization,
+    savePlatformSettings,
+    transitionRequestStatus,
+    deleteUser,
+    deleteOrganization
+  } = useDocumentActions();
 
   // Active workspace tab
   const [activeTab, setActiveTab] = useState('overview'); // overview | users | organizations | requests | analytics | logs | settings
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Firestore collections states
-  const [users, setUsers] = useState([]);
-  const [organizations, setOrganizations] = useState([]);
-  const [requests, setRequests] = useState([]);
-  const [auditLogs, setAuditLogs] = useState([]);
-  const [loadingUsers, setLoadingUsers] = useState(true);
-  const [loadingOrgs, setLoadingOrgs] = useState(true);
-  const [loadingRequests, setLoadingRequests] = useState(true);
-  const [loadingAuditLogs, setLoadingAuditLogs] = useState(true);
+  // Consumed from centralized DocumentProvider state context
+  const {
+    users,
+    organizations,
+    verificationRequests: requests,
+    auditLogs,
+    platformSettings,
+    loading
+  } = useDocuments();
 
-  // Platform settings state
-  const [platformSettings, setPlatformSettings] = useState({
-    maintenanceMode: false,
-    allowSelfRegistration: true,
-    maxUploadSizeMb: 20
-  });
+  const loadingUsers = loading;
+  const loadingOrgs = loading;
+  const loadingRequests = loading;
+  const loadingAuditLogs = loading;
 
   // Editing / Creation States
   const [editingUser, setEditingUser] = useState(null);
@@ -91,6 +88,13 @@ export default function AdminPortal() {
     status: 'Active',
     verificationStatus: 'Verified',
   });
+  const [orgSearch, setOrgSearch] = useState('');
+
+  const filteredOrganizations = useMemo(() => {
+    return organizations.filter((org) =>
+      org.name.toLowerCase().includes(orgSearch.toLowerCase())
+    );
+  }, [organizations, orgSearch]);
 
   // Edit Org States
   const [editingOrg, setEditingOrg] = useState(null);
@@ -127,80 +131,7 @@ export default function AdminPortal() {
     setLogPage(1);
   }, [logSearch, logActionFilter]);
 
-  // Load registered users stream
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'users'), (snap) => {
-      const list = [];
-      snap.forEach((doc) => list.push({ id: doc.id, ...doc.data() }));
-      setUsers(list);
-      setLoadingUsers(false);
-    }, (error) => {
-      console.error("Users list load permission error:", error);
-      setLoadingUsers(false);
-    });
-    return () => unsub();
-  }, []);
 
-  // Load organizations stream
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'organizations'), (snap) => {
-      const list = [];
-      snap.forEach((doc) => list.push({ id: doc.id, ...doc.data() }));
-      setOrganizations(list);
-      setLoadingOrgs(false);
-    }, (error) => {
-      console.error("Organizations list load permission error:", error);
-      setLoadingOrgs(false);
-    });
-    return () => unsub();
-  }, []);
-
-  // Load requests stream
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'verificationRequests'), (snap) => {
-      const list = [];
-      snap.forEach((doc) => list.push({ id: doc.id, ...doc.data() }));
-      setRequests(list);
-      setLoadingRequests(false);
-    }, (error) => {
-      console.error("Requests list load permission error:", error);
-      setLoadingRequests(false);
-    });
-    return () => unsub();
-  }, []);
-
-  // Load audit logs stream
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'auditLogs'), (snap) => {
-      const list = [];
-      snap.forEach((doc) => list.push({ id: doc.id, ...doc.data() }));
-      setAuditLogs(list);
-      setLoadingAuditLogs(false);
-    }, (error) => {
-      console.error("Audit logs load permission error:", error);
-      setLoadingAuditLogs(false);
-    });
-    return () => unsub();
-  }, []);
-
-  // Load Platform Settings
-  useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'settings', 'platform'), (docSnap) => {
-      if (docSnap.exists()) {
-        setPlatformSettings(docSnap.data());
-      } else {
-        // Seed default settings doc if missing
-        setDoc(doc(db, 'settings', 'platform'), {
-          maintenanceMode: false,
-          allowSelfRegistration: true,
-          maxUploadSizeMb: 20
-        });
-      }
-    }, (error) => {
-      console.error("Platform settings load permission error:", error);
-    });
-    return () => unsub();
-  }, []);
 
   // Show status banner notification helper
   const triggerNotification = (type, message) => {
@@ -256,40 +187,16 @@ export default function AdminPortal() {
     setActionProcessing(true);
     setConfirmAction(null);
     try {
-      try {
-        const assignUserFn = httpsCallable(functions, 'assignOrganizationUser');
-        await assignUserFn({
-          targetUserId: editingUser.id,
-          targetUserEmail: editingUser.email,
-          role: userForm.role,
-          status: userForm.status,
-          organizationId: userForm.organizationId,
-          organizationName: userForm.organizationName,
-          organizationRole: userForm.organizationRole
-        });
-      } catch (fnErr) {
-        console.warn("Cloud Function assignOrganizationUser failed, using client-side fallback:", fnErr);
-        const userRef = doc(db, 'users', editingUser.id);
-        const isOrg = userForm.role === 'organization';
-        await updateDoc(userRef, {
-          role: userForm.role,
-          status: userForm.status,
-          organizationId: isOrg ? userForm.organizationId || null : null,
-          organizationName: isOrg ? userForm.organizationName || null : null,
-          organizationRole: isOrg ? userForm.organizationRole || null : null,
-        });
-        const logRef = doc(collection(db, 'auditLogs'));
-        await setDoc(logRef, {
-          action: 'UPDATE_USER',
-          actorId: currentUser.uid,
-          actorEmail: currentUser.email,
-          targetId: editingUser.id,
-          targetName: editingUser.email,
-          details: `Updated user role to ${userForm.role}, status to ${userForm.status}${isOrg ? ` (Org: ${userForm.organizationName}, Role: ${userForm.organizationRole})` : ''} (Fallback)`,
-          timestamp: new Date().toISOString()
-        });
-      }
+      const isOrg = userForm.role === 'organization';
+      const updates = {
+        role: userForm.role,
+        status: userForm.status,
+        organizationId: isOrg ? userForm.organizationId || null : null,
+        organizationName: isOrg ? userForm.organizationName || null : null,
+        organizationRole: isOrg ? userForm.organizationRole || null : null,
+      };
 
+      await updateUserRoleStatus(editingUser.id, updates, currentUser.email, currentUser.uid);
       triggerNotification('success', 'User profile updated successfully.');
       setEditingUser(null);
     } catch (err) {
@@ -325,21 +232,8 @@ export default function AdminPortal() {
       onConfirm: async () => {
         setActionProcessing(true);
         try {
-          await deleteDoc(doc(db, 'users', userId));
-          
-          // Log audit
-          const logRef = doc(collection(db, 'auditLogs'));
-          await setDoc(logRef, {
-            action: 'DELETE_USER',
-            actorId: currentUser.uid,
-            actorEmail: currentUser.email,
-            targetId: userId,
-            targetName: userEmail,
-            details: `Deleted user account ${userEmail}`,
-            timestamp: new Date().toISOString()
-          });
-
-          triggerNotification('success', `User ${userEmail} deleted successfully.`);
+          await deleteUser(userId, currentUser.email, currentUser.uid);
+          triggerNotification('success', `User account ${userEmail} deleted successfully.`);
         } catch (err) {
           console.error(err);
           triggerNotification('error', 'Failed to delete user: ' + err.message);
@@ -358,48 +252,21 @@ export default function AdminPortal() {
 
     setActionProcessing(true);
     try {
-      let createdName = newOrgForm.name.trim();
-      try {
-        const createOrgFn = httpsCallable(functions, 'createOrganization');
-        const res = await createOrgFn({
-          name: newOrgForm.name.trim(),
-          type: newOrgForm.type,
-          officialEmailDomain: newOrgForm.officialEmailDomain.trim(),
-          website: newOrgForm.website.trim(),
-          status: newOrgForm.status,
-          verificationStatus: newOrgForm.verificationStatus,
-        });
-        createdName = res.data.name;
-      } catch (fnErr) {
-        console.warn("Cloud Function createOrganization failed, using client-side fallback:", fnErr);
-        const generatedId = `org-${newOrgForm.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-        const newOrg = {
-          organizationId: generatedId,
-          name: newOrgForm.name.trim(),
-          type: newOrgForm.type,
-          officialEmailDomain: newOrgForm.officialEmailDomain.trim(),
-          website: newOrgForm.website.trim(),
-          logoUrl: null,
-          status: newOrgForm.status,
-          verificationStatus: newOrgForm.verificationStatus,
-          createdAt: new Date().toISOString(),
-        };
+      const generatedId = `org-${newOrgForm.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+      const newOrg = {
+        organizationId: generatedId,
+        name: newOrgForm.name.trim(),
+        type: newOrgForm.type,
+        officialEmailDomain: newOrgForm.officialEmailDomain.trim(),
+        website: newOrgForm.website.trim(),
+        logoUrl: null,
+        status: newOrgForm.status,
+        verificationStatus: newOrgForm.verificationStatus,
+        createdAt: new Date().toISOString(),
+      };
 
-        await setDoc(doc(db, 'organizations', generatedId), newOrg);
-
-        const logRef = doc(collection(db, 'auditLogs'));
-        await setDoc(logRef, {
-          action: 'CREATE_ORGANIZATION',
-          actorId: currentUser.uid,
-          actorEmail: currentUser.email,
-          targetId: generatedId,
-          targetName: newOrg.name,
-          details: `Created organization "${newOrg.name}" with ID ${generatedId} (Fallback)`,
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      triggerNotification('success', `Organization "${createdName}" created successfully.`);
+      await createOrganization(generatedId, newOrg, currentUser.email, currentUser.uid);
+      triggerNotification('success', `Organization "${newOrg.name}" created successfully.`);
       setShowCreateOrg(false);
       setNewOrgForm({
         name: '',
@@ -424,31 +291,12 @@ export default function AdminPortal() {
 
     setActionProcessing(true);
     try {
-      try {
-        const updateOrgFn = httpsCallable(functions, 'updateOrganization');
-        await updateOrgFn({
-          organizationId: editingOrg.id,
-          status: orgForm.status,
-          verificationStatus: orgForm.verificationStatus,
-        });
-      } catch (fnErr) {
-        console.warn("Cloud Function updateOrganization failed, using client-side fallback:", fnErr);
-        await updateDoc(doc(db, 'organizations', editingOrg.id), {
-          status: orgForm.status,
-          verificationStatus: orgForm.verificationStatus,
-        });
-        const logRef = doc(collection(db, 'auditLogs'));
-        await setDoc(logRef, {
-          action: 'UPDATE_ORGANIZATION',
-          actorId: currentUser.uid,
-          actorEmail: currentUser.email,
-          targetId: editingOrg.id,
-          targetName: editingOrg.name,
-          details: `Updated organization "${editingOrg.name}" status to ${orgForm.status}, verification to ${orgForm.verificationStatus} (Fallback)`,
-          timestamp: new Date().toISOString()
-        });
-      }
+      const updates = {
+        status: orgForm.status,
+        verificationStatus: orgForm.verificationStatus,
+      };
 
+      await updateOrganization(editingOrg.id, updates, currentUser.email, currentUser.uid);
       triggerNotification('success', 'Organization metadata updated successfully.');
       setEditingOrg(null);
     } catch (err) {
@@ -467,29 +315,11 @@ export default function AdminPortal() {
       onConfirm: async () => {
         setActionProcessing(true);
         try {
-          try {
-            const deleteOrgFn = httpsCallable(functions, 'deleteOrganization');
-            await deleteOrgFn({ organizationId: orgId, name: orgName });
-          } catch (fnErr) {
-            console.warn("Cloud Function deleteOrganization failed, using client-side fallback:", fnErr);
-            await deleteDoc(doc(db, 'organizations', orgId));
-
-            const logRef = doc(collection(db, 'auditLogs'));
-            await setDoc(logRef, {
-              action: 'DELETE_ORGANIZATION',
-              actorId: currentUser.uid,
-              actorEmail: currentUser.email,
-              targetId: orgId,
-              targetName: orgName,
-              details: `Deleted organization "${orgName}" (Fallback)`,
-              timestamp: new Date().toISOString()
-            });
-          }
-
+          await deleteOrganization(orgId, currentUser.email, currentUser.uid);
           triggerNotification('success', `Organization "${orgName}" deleted successfully.`);
         } catch (err) {
           console.error(err);
-          triggerNotification('error', err.message || 'Failed to delete organization.');
+          triggerNotification('error', 'Failed to delete organization: ' + err.message);
         } finally {
           setActionProcessing(false);
           setConfirmAction(null);
@@ -502,36 +332,11 @@ export default function AdminPortal() {
   const handleUpdateOrgStatus = async (orgId, newStatus, newVerification) => {
     setActionProcessing(true);
     try {
-      try {
-        const updateOrgFn = httpsCallable(functions, 'updateOrganization');
-        await updateOrgFn({
-          organizationId: orgId,
-          status: newStatus,
-          verificationStatus: newVerification
-        });
-      } catch (fnErr) {
-        console.warn("Cloud Function updateOrganization failed, using client-side fallback:", fnErr);
-        const updates = {};
-        if (newStatus) updates.status = newStatus;
-        if (newVerification) updates.verificationStatus = newVerification;
+      const updates = {};
+      if (newStatus) updates.status = newStatus;
+      if (newVerification) updates.verificationStatus = newVerification;
 
-        await updateDoc(doc(db, 'organizations', orgId), updates);
-
-        const targetOrg = organizations.find(o => o.id === orgId);
-        const targetOrgName = targetOrg ? targetOrg.name : 'Organization';
-
-        const logRef = doc(collection(db, 'auditLogs'));
-        await setDoc(logRef, {
-          action: 'UPDATE_ORGANIZATION',
-          actorId: currentUser.uid,
-          actorEmail: currentUser.email,
-          targetId: orgId,
-          targetName: targetOrgName,
-          details: `Direct status toggle: status=${newStatus || 'N/A'}, verificationStatus=${newVerification || 'N/A'} (Fallback)`,
-          timestamp: new Date().toISOString()
-        });
-      }
-
+      await updateOrganization(orgId, updates, currentUser.email, currentUser.uid);
       triggerNotification('success', `Organization status updated.`);
     } catch (err) {
       console.error(err);
@@ -541,7 +346,6 @@ export default function AdminPortal() {
     }
   };
 
-  // Update verification request status directly from admin dashboard
   const handleRequestStatusChange = (reqId, newStatus, actionName, timelineMsg) => {
     setConfirmAction({
       title: `${actionName.replace('_', ' ')}`,
@@ -549,47 +353,7 @@ export default function AdminPortal() {
       onConfirm: async () => {
         setActionProcessing(true);
         try {
-          const timelineEntry = {
-            status: newStatus,
-            title: timelineMsg,
-            timestamp: new Date().toISOString(),
-            details: `Updated by Super Admin ${currentUser.email}`
-          };
-
-          try {
-            if (actionName === 'REVOKE_REQUEST') {
-              const revokeFn = httpsCallable(functions, 'revokeCredential');
-              await revokeFn({ requestId: reqId, timelineEntry });
-            } else if (newStatus === 'Rejected') {
-              const rejectFn = httpsCallable(functions, 'rejectVerification');
-              await rejectFn({ requestId: reqId, timelineEntry });
-            } else if (newStatus === 'Information Requested') {
-              const reqInfoFn = httpsCallable(functions, 'requestInformation');
-              await reqInfoFn({ requestId: reqId, timelineEntry });
-            }
-          } catch (fnErr) {
-            console.warn("Cloud Function request status transition failed, using client-side fallback:", fnErr);
-            const reqDocRef = doc(db, 'verificationRequests', reqId);
-            await updateDoc(reqDocRef, {
-              status: newStatus,
-              timeline: arrayUnion(timelineEntry)
-            });
-
-            const reqSnap = await getDoc(reqDocRef);
-            const reqData = reqSnap.exists() ? reqSnap.data() : {};
-
-            const logRef = doc(collection(db, 'auditLogs'));
-            await setDoc(logRef, {
-              action: actionName,
-              actorId: currentUser.uid,
-              actorEmail: currentUser.email,
-              targetId: reqId,
-              targetName: reqData.ownerName || 'Verification Request',
-              details: `${timelineMsg} (Request ID: ${reqId}) (Fallback)`,
-              timestamp: new Date().toISOString()
-            });
-          }
-
+          await transitionRequestStatus(reqId, newStatus, actionName, timelineMsg, currentUser.email, currentUser.uid);
           triggerNotification('success', `Request status updated to ${newStatus}.`);
         } catch (err) {
           console.error(err);
@@ -607,25 +371,7 @@ export default function AdminPortal() {
     e.preventDefault();
     setActionProcessing(true);
     try {
-      try {
-        const saveSettingsFn = httpsCallable(functions, 'updatePlatformSettings');
-        await saveSettingsFn(platformSettings);
-      } catch (fnErr) {
-        console.warn("Cloud Function updatePlatformSettings failed, using client-side fallback:", fnErr);
-        await setDoc(doc(db, 'settings', 'platform'), platformSettings);
-
-        const logRef = doc(collection(db, 'auditLogs'));
-        await setDoc(logRef, {
-          action: 'UPDATE_SETTINGS',
-          actorId: currentUser.uid,
-          actorEmail: currentUser.email,
-          targetId: 'settings/platform',
-          targetName: 'Platform Settings',
-          details: `Updated settings: Maintenance Mode = ${platformSettings.maintenanceMode}, Max Upload Size = ${platformSettings.maxUploadSizeMb}MB (Fallback)`,
-          timestamp: new Date().toISOString()
-        });
-      }
-
+      await savePlatformSettings(platformSettings, currentUser.email, currentUser.uid);
       triggerNotification('success', 'Platform settings saved successfully.');
     } catch (err) {
       console.error(err);
@@ -648,25 +394,7 @@ export default function AdminPortal() {
             allowSelfRegistration: true,
             maxUploadSizeMb: 20
           };
-          try {
-            const saveSettingsFn = httpsCallable(functions, 'updatePlatformSettings');
-            await saveSettingsFn(defaults);
-          } catch (fnErr) {
-            console.warn("Cloud Function updatePlatformSettings failed, using client-side fallback:", fnErr);
-            await setDoc(doc(db, 'settings', 'platform'), defaults);
-
-            const logRef = doc(collection(db, 'auditLogs'));
-            await setDoc(logRef, {
-              action: 'UPDATE_SETTINGS',
-              actorId: currentUser.uid,
-              actorEmail: currentUser.email,
-              targetId: 'settings/platform',
-              targetName: 'Platform Settings',
-              details: `Reset platform settings to defaults (Fallback)`,
-              timestamp: new Date().toISOString()
-            });
-          }
-
+          await savePlatformSettings(defaults, currentUser.email, currentUser.uid);
           triggerNotification('success', 'Platform settings reset to defaults.');
         } catch (err) {
           console.error(err);
@@ -813,27 +541,27 @@ export default function AdminPortal() {
   }, [organizations, orgSearchQuery]);
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900/30 dark:bg-[#090a0f] text-slate-800 dark:text-slate-200 transition-colors duration-250 flex flex-col font-sans">
       
       {/* Top Banner Alert System */}
       {notification && (
-        <div className={`fixed top-4 right-4 z-55 px-4 py-3 rounded-md shadow-lg border text-sm font-semibold flex items-center gap-2 transition-all ${
-          notification.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-250' : 'bg-red-50 text-red-800 border-red-250'
+        <div className={`fixed top-4 right-4 z-55 px-4 py-3 rounded-xl shadow-lg border text-xs font-semibold flex items-center gap-2 transition-all ${
+          notification.type === 'success' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-450 dark:text-emerald-450 border-emerald-500/20' : 'bg-rose-500/10 text-rose-700 dark:text-rose-450 border-rose-500/20'
         }`}>
-          {notification.type === 'success' ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+          {notification.type === 'success' ? <CheckCircle2 className="h-4.5 w-4.5" /> : <XCircle className="h-4.5 w-4.5" />}
           <span>{notification.message}</span>
         </div>
       )}
 
       {/* Warning Alert Modal */}
       {warningMessage && (
-        <div className="fixed inset-0 z-55 flex items-center justify-center bg-slate-950/65 px-4">
-          <Card className="max-w-md w-full p-6 text-center space-y-4 bg-white border border-slate-200">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-700">
+        <div className="fixed inset-0 z-55 flex items-center justify-center bg-slate-950/60 dark:bg-black/80 backdrop-blur-sm px-4">
+          <Card className="max-w-md w-full p-6 text-center space-y-4 bg-white dark:bg-[#12131a] dark:bg-[#12131a] border border-slate-200 dark:border-slate-800/40 dark:border-slate-800/40 shadow-2xl dark:shadow-black/50">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10 text-rose-705 dark:text-rose-400 border border-rose-500/20">
               <ShieldAlert className="h-6 w-6" />
             </div>
-            <h3 className="text-lg font-bold text-slate-950">Action Blocked</h3>
-            <p className="text-sm text-slate-600 leading-relaxed">{warningMessage}</p>
+            <h3 className="text-sm font-bold text-slate-950 dark:text-white dark:text-white uppercase tracking-wider">Action Blocked</h3>
+            <p className="text-xs text-slate-505 dark:text-slate-400 font-semibold leading-relaxed">{warningMessage}</p>
             <div className="pt-2">
               <Button onClick={() => setWarningMessage(null)} variant="primary" className="w-full">
                 Understood
@@ -845,13 +573,13 @@ export default function AdminPortal() {
 
       {/* Confirmation Actions Modal */}
       {confirmAction && (
-        <div className="fixed inset-0 z-55 flex items-center justify-center bg-slate-950/65 px-4">
-          <Card className="max-w-md w-full p-6 space-y-4 bg-white border border-slate-200">
-            <div className="flex items-center gap-3 border-b border-slate-150 pb-3">
-              <AlertTriangle className="h-6 w-6 text-amber-600 shrink-0" />
-              <h3 className="text-lg font-bold text-slate-950">{confirmAction.title}</h3>
+        <div className="fixed inset-0 z-55 flex items-center justify-center bg-slate-950/60 dark:bg-black/80 backdrop-blur-sm px-4">
+          <Card className="max-w-md w-full p-6 space-y-4 bg-white dark:bg-[#12131a] dark:bg-[#12131a] border border-slate-250 dark:border-slate-800/50/80 dark:border-slate-800/40 shadow-2xl dark:shadow-black/50">
+            <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-800/40/50 dark:border-slate-800/40 pb-3">
+              <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
+              <h3 className="text-sm font-bold text-slate-950 dark:text-white dark:text-white uppercase tracking-wider">{confirmAction.title}</h3>
             </div>
-            <p className="text-sm text-slate-600 leading-relaxed">{confirmAction.message}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-450 dark:text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">{confirmAction.message}</p>
             <div className="flex gap-2 justify-end pt-2">
               <Button onClick={() => setConfirmAction(null)} variant="secondary">
                 Cancel
@@ -865,31 +593,33 @@ export default function AdminPortal() {
       )}
 
       {/* Dashboard Top Header Navigation */}
-      <header className="bg-slate-900 text-white h-16 flex items-center justify-between px-6 shrink-0 shadow-md">
+      <header className="sticky top-0 z-30 border-b border-slate-200 dark:border-slate-800/40/80 dark:border-slate-800/40 bg-slate-50 dark:bg-slate-900/30/80 dark:bg-[#090a0f]/80 backdrop-blur-md px-6 py-4 flex items-center justify-between transition-theme">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="md:hidden p-1 text-slate-300 hover:text-white shrink-0 cursor-pointer"
+            className="md:hidden p-2 rounded-xl border border-slate-200 dark:border-slate-800/40 dark:border-slate-850 bg-white dark:bg-[#12131a] dark:bg-slate-900/40 text-slate-400 cursor-pointer"
           >
-            <Activity className="h-5 w-5" />
+            <Activity className="h-4.5 w-4.5" />
           </button>
-          <span className="flex h-7 w-7 items-center justify-center rounded bg-blue-600 text-white shrink-0">
-            <ShieldCheck className="h-4 w-4" />
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm dark:shadow-black/10 shadow-blue-500/20">
+            <ShieldCheck className="h-5 w-5" />
           </span>
-          <span className="text-md font-black tracking-wider uppercase">VeriFlash Super Admin</span>
+          <span className="tracking-tight font-extrabold text-slate-900 dark:text-slate-100 dark:text-white text-sm">VeriFlash Admin</span>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div className="hidden lg:block text-right">
-            <p className="text-xs font-bold text-slate-100">{currentUser?.displayName || 'Super Admin'}</p>
-            <p className="text-[10px] text-slate-400 font-semibold">{currentUser?.email}</p>
+            <p className="text-xs font-bold text-slate-900 dark:text-slate-100 dark:text-white">{currentUser?.displayName || 'Super Admin'}</p>
+            <p className="text-[10px] text-slate-450 dark:text-slate-500 dark:text-slate-550 font-semibold">{currentUser?.email}</p>
           </div>
-          <button
+          <ThemeToggle />
+          <Button
             onClick={handleLogout}
-            className="flex items-center gap-1.5 bg-red-650 hover:bg-red-700 text-white font-bold py-1.5 px-3 rounded-md text-xs transition cursor-pointer"
+            variant="danger"
+            className="py-1 px-3.5 text-xs font-bold rounded-xl"
+            icon={LogOut}
           >
-            <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">Sign Out</span>
-          </button>
+            Sign Out
+          </Button>
         </div>
       </header>
 
@@ -897,10 +627,10 @@ export default function AdminPortal() {
       <div className="flex-1 flex overflow-hidden">
         
         {/* Sidebar Nav */}
-        <aside className={`bg-slate-900 border-t border-slate-800 text-slate-300 w-64 shrink-0 flex flex-col justify-between py-4 transition-all duration-300 fixed md:static inset-y-16 left-0 z-40 ${
+        <aside className={`border-r border-slate-200 dark:border-slate-800/40/80 dark:border-slate-800/40 bg-white dark:bg-[#12131a]/80 dark:bg-[#12131a]/80 backdrop-blur-md w-64 shrink-0 flex flex-col justify-between py-6 transition-all duration-250 fixed md:static inset-y-16 left-0 z-40 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}>
-          <nav className="space-y-1 px-3">
+          <nav className="space-y-1.5 px-3">
             {[
               { id: 'overview', label: 'Overview', icon: Activity },
               { id: 'users', label: 'Users', icon: UsersIcon },
@@ -919,23 +649,25 @@ export default function AdminPortal() {
                     setActiveTab(tab.id);
                     setSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-bold rounded-md transition cursor-pointer ${
-                    isActive ? 'bg-blue-700 text-white' : 'hover:bg-slate-800 hover:text-slate-100'
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-bold rounded-xl transition-all duration-150 active:scale-[0.98] cursor-pointer text-left ${
+                    isActive
+                      ? 'bg-blue-50 dark:bg-blue-950/200/10 text-blue-600 dark:text-blue-400 font-extrabold'
+                      : 'text-slate-550 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/20 dark:bg-slate-900/60 dark:hover:bg-slate-800/20 hover:text-slate-850 dark:text-slate-200 dark:hover:text-slate-200'
                   }`}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-4.5 w-4.5 text-current shrink-0" />
                   <span>{tab.label}</span>
                 </button>
               );
             })}
           </nav>
-          <div className="px-6 py-2 text-[10px] text-slate-500 font-semibold border-t border-slate-800 mt-auto space-y-2">
+          <div className="px-6 py-2 text-[10px] text-slate-500 dark:text-slate-450 dark:text-slate-500 font-semibold border-t border-slate-200 dark:border-slate-800/40/50 dark:border-slate-800/40 mt-auto space-y-2">
             {import.meta.env.DEV && localStorage.getItem('dev_user') && (
-              <div className="p-2 rounded bg-amber-500/10 border border-amber-500/30 text-center space-y-0.5">
-                <p className="font-extrabold text-amber-500 uppercase tracking-wider flex items-center justify-center gap-1">
-                  <span>🛠</span> Dev Mode
+              <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center space-y-0.5">
+                <p className="font-extrabold text-amber-500 uppercase tracking-wider flex items-center justify-center gap-1 text-[9px]">
+                  🛠 Dev Mode
                 </p>
-                <p className="font-bold text-slate-350">
+                <p className="font-bold text-slate-600 dark:text-slate-450 dark:text-slate-500 dark:text-slate-400">
                   {(() => {
                     try {
                       const r = JSON.parse(localStorage.getItem('dev_user'))?.userProfile?.role;
@@ -958,42 +690,42 @@ export default function AdminPortal() {
           {/* TAB 1: OVERVIEW PANEL */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-                <h1 className="text-2xl font-bold text-slate-950">Overview Summary</h1>
-                <span className="text-xs text-slate-500 font-medium">Real-time Telemetry Data</span>
+              <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800/40 pb-3">
+                <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Overview Summary</h1>
+                <span className="text-xs text-slate-500 dark:text-slate-450 dark:text-slate-500 font-medium">Real-time Telemetry Data</span>
               </div>
 
               {/* Statistics Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="p-5 flex items-center justify-between bg-white border border-slate-200 shadow-sm">
+                <Card className="p-5 flex items-center justify-between bg-white dark:bg-[#12131a] border border-slate-200 dark:border-slate-800/40 shadow-sm dark:shadow-black/10">
                   <div>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Users</p>
-                    <p className="text-2xl font-black text-slate-900 mt-1">{stats.totalUsers}</p>
+                    <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1">{stats.totalUsers}</p>
                     <p className="text-[10px] text-slate-400 font-semibold mt-1">Active: {stats.activeUsers} | Suspended: {stats.suspendedUsers}</p>
                   </div>
                   <UsersIcon className="h-8 w-8 text-blue-600" />
                 </Card>
-                <Card className="p-5 flex items-center justify-between bg-white border border-slate-200 shadow-sm">
+                <Card className="p-5 flex items-center justify-between bg-white dark:bg-[#12131a] border border-slate-200 dark:border-slate-800/40 shadow-sm dark:shadow-black/10">
                   <div>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Organizations</p>
-                    <p className="text-2xl font-black text-slate-900 mt-1">{stats.totalOrgs}</p>
+                    <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1">{stats.totalOrgs}</p>
                     <p className="text-[10px] text-slate-400 font-semibold mt-1">Active: {stats.activeOrgs} | Pending: {stats.pendingOrgs}</p>
                   </div>
                   <Building2 className="h-8 w-8 text-indigo-600" />
                 </Card>
-                <Card className="p-5 flex items-center justify-between bg-white border border-slate-200 shadow-sm">
+                <Card className="p-5 flex items-center justify-between bg-white dark:bg-[#12131a] border border-slate-200 dark:border-slate-800/40 shadow-sm dark:shadow-black/10">
                   <div>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Verification Requests</p>
-                    <p className="text-2xl font-black text-slate-900 mt-1">{stats.totalRequests}</p>
+                    <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1">{stats.totalRequests}</p>
                     <p className="text-[10px] text-slate-400 font-semibold mt-1">Approved: {stats.approvedRequests} | Pending: {stats.pendingRequests}</p>
                   </div>
                   <FileCheck2 className="h-8 w-8 text-emerald-600" />
                 </Card>
-                <Card className="p-5 flex items-center justify-between bg-white border border-slate-200 shadow-sm">
+                <Card className="p-5 flex items-center justify-between bg-white dark:bg-[#12131a] border border-slate-200 dark:border-slate-800/40 shadow-sm dark:shadow-black/10">
                   <div>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Approval / Rejection Rate</p>
-                    <p className="text-2xl font-black text-slate-900 mt-1">{stats.approvalRate}% / {stats.rejectionRate}%</p>
-                    <p className="text-[10px] text-slate-450 font-semibold mt-1">Info Req: {stats.infoRequests}</p>
+                    <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1">{stats.approvalRate}% / {stats.rejectionRate}%</p>
+                    <p className="text-[10px] text-slate-450 dark:text-slate-500 font-semibold mt-1">Info Req: {stats.infoRequests}</p>
                   </div>
                   <Activity className="h-8 w-8 text-amber-500" />
                 </Card>
@@ -1005,58 +737,58 @@ export default function AdminPortal() {
                 <div className="lg:col-span-2 space-y-4">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Database Status Distribution</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <Card className="p-4 space-y-2 border-l-4 border-emerald-500 bg-white">
+                    <Card className="p-4 space-y-2 border-l-4 border-emerald-500 bg-white dark:bg-[#12131a]">
                       <p className="text-xs text-slate-505 font-extrabold uppercase">User Health</p>
                       <div className="flex justify-between items-center text-sm font-semibold">
-                        <span className="text-slate-600">Active</span>
-                        <span className="text-emerald-700">{stats.activeUsers}</span>
+                        <span className="text-slate-600 dark:text-slate-450 dark:text-slate-500">Active</span>
+                        <span className="text-emerald-700 dark:text-emerald-450">{stats.activeUsers}</span>
                       </div>
-                      <div className="flex justify-between items-center text-sm font-semibold border-t border-slate-100 pt-1">
-                        <span className="text-slate-600">Suspended</span>
-                        <span className="text-red-700">{stats.suspendedUsers}</span>
+                      <div className="flex justify-between items-center text-sm font-semibold border-t border-slate-100 dark:border-slate-800/20 pt-1">
+                        <span className="text-slate-600 dark:text-slate-450 dark:text-slate-500">Suspended</span>
+                        <span className="text-red-700 dark:text-rose-450">{stats.suspendedUsers}</span>
                       </div>
-                      <div className="flex justify-between items-center text-sm font-semibold border-t border-slate-100 pt-1">
-                        <span className="text-slate-600">Pending</span>
-                        <span className="text-amber-700">{stats.pendingUsers}</span>
+                      <div className="flex justify-between items-center text-sm font-semibold border-t border-slate-100 dark:border-slate-800/20 pt-1">
+                        <span className="text-slate-600 dark:text-slate-450 dark:text-slate-500">Pending</span>
+                        <span className="text-amber-700 dark:text-amber-450">{stats.pendingUsers}</span>
                       </div>
                     </Card>
-                    <Card className="p-4 space-y-2 border-l-4 border-indigo-500 bg-white">
+                    <Card className="p-4 space-y-2 border-l-4 border-indigo-500 bg-white dark:bg-[#12131a]">
                       <p className="text-xs text-slate-505 font-extrabold uppercase">Organizations Health</p>
                       <div className="flex justify-between items-center text-sm font-semibold">
-                        <span className="text-slate-600">Active</span>
+                        <span className="text-slate-600 dark:text-slate-450 dark:text-slate-500">Active</span>
                         <span className="text-indigo-755">{stats.activeOrgs}</span>
                       </div>
-                      <div className="flex justify-between items-center text-sm font-semibold border-t border-slate-100 pt-1">
-                        <span className="text-slate-600">Suspended</span>
-                        <span className="text-red-700">{stats.suspendedOrgs}</span>
+                      <div className="flex justify-between items-center text-sm font-semibold border-t border-slate-100 dark:border-slate-800/20 pt-1">
+                        <span className="text-slate-600 dark:text-slate-450 dark:text-slate-500">Suspended</span>
+                        <span className="text-red-700 dark:text-rose-450">{stats.suspendedOrgs}</span>
                       </div>
-                      <div className="flex justify-between items-center text-sm font-semibold border-t border-slate-100 pt-1">
-                        <span className="text-slate-600">Pending</span>
-                        <span className="text-amber-700">{stats.pendingOrgs}</span>
+                      <div className="flex justify-between items-center text-sm font-semibold border-t border-slate-100 dark:border-slate-800/20 pt-1">
+                        <span className="text-slate-600 dark:text-slate-450 dark:text-slate-500">Pending</span>
+                        <span className="text-amber-700 dark:text-amber-450">{stats.pendingOrgs}</span>
                       </div>
                     </Card>
-                    <Card className="p-4 space-y-2 border-l-4 border-blue-500 bg-white">
+                    <Card className="p-4 space-y-2 border-l-4 border-blue-500 bg-white dark:bg-[#12131a]">
                       <p className="text-xs text-slate-505 font-extrabold uppercase">Requests Health</p>
                       <div className="flex justify-between items-center text-sm font-semibold">
-                        <span className="text-slate-600">Approved</span>
-                        <span className="text-emerald-700">{stats.approvedRequests}</span>
+                        <span className="text-slate-600 dark:text-slate-450 dark:text-slate-500">Approved</span>
+                        <span className="text-emerald-700 dark:text-emerald-450">{stats.approvedRequests}</span>
                       </div>
-                      <div className="flex justify-between items-center text-sm font-semibold border-t border-slate-100 pt-1">
-                        <span className="text-slate-600">Rejected</span>
-                        <span className="text-red-700">{stats.rejectedRequests}</span>
+                      <div className="flex justify-between items-center text-sm font-semibold border-t border-slate-100 dark:border-slate-800/20 pt-1">
+                        <span className="text-slate-600 dark:text-slate-450 dark:text-slate-500">Rejected</span>
+                        <span className="text-red-700 dark:text-rose-450">{stats.rejectedRequests}</span>
                       </div>
-                      <div className="flex justify-between items-center text-sm font-semibold border-t border-slate-100 pt-1">
-                        <span className="text-slate-600">Pending / Info</span>
-                        <span className="text-amber-700">{stats.pendingRequests + stats.infoRequests}</span>
+                      <div className="flex justify-between items-center text-sm font-semibold border-t border-slate-100 dark:border-slate-800/20 pt-1">
+                        <span className="text-slate-600 dark:text-slate-450 dark:text-slate-500">Pending / Info</span>
+                        <span className="text-amber-700 dark:text-amber-450">{stats.pendingRequests + stats.infoRequests}</span>
                       </div>
                     </Card>
                   </div>
                 </div>
 
                 {/* Recent Sign-ins list */}
-                <Card className="p-4 space-y-3 bg-white border border-slate-200">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-150 pb-2">Recent Sign-ins</h3>
-                  <div className="divide-y divide-slate-100 space-y-2 max-h-60 overflow-y-auto pr-1">
+                <Card className="p-4 space-y-3 bg-white dark:bg-[#12131a] border border-slate-200 dark:border-slate-800/40">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200/60 dark:border-slate-800/40 pb-2">Recent Sign-ins</h3>
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800/40 space-y-2 max-h-60 overflow-y-auto pr-1">
                     {users
                       .filter(u => u.lastLogin)
                       .sort((a,b) => {
@@ -1068,10 +800,10 @@ export default function AdminPortal() {
                       .map((u) => (
                         <div key={u.id} className="pt-2 flex items-center justify-between text-xs font-semibold">
                           <div className="truncate pr-2">
-                            <p className="text-slate-850 font-bold truncate">{u.name}</p>
+                            <p className="text-slate-850 dark:text-slate-200 font-bold truncate">{u.name}</p>
                             <p className="text-slate-400 truncate">{u.email}</p>
                           </div>
-                          <span className="text-[10px] text-slate-400 whitespace-nowrap bg-slate-100 px-1.5 py-0.5 rounded font-mono">
+                          <span className="text-[10px] text-slate-400 whitespace-nowrap bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded font-mono">
                             {u.lastLogin?.toDate ? new Date(u.lastLogin.toDate()).toLocaleTimeString() : 
                              typeof u.lastLogin === 'string' ? new Date(u.lastLogin).toLocaleTimeString() : 'N/A'}
                           </span>
@@ -1086,13 +818,13 @@ export default function AdminPortal() {
           {/* TAB 2: USER DIRECTORY */}
           {activeTab === 'users' && (
             <div className="space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-                <h1 className="text-2xl font-bold text-slate-950">User Directory</h1>
-                <p className="text-xs text-slate-500 font-semibold">{filteredUsers.length} Users Listed</p>
+              <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800/40 pb-3">
+                <h1 className="text-2xl font-bold text-slate-950 dark:text-white">User Directory</h1>
+                <p className="text-xs text-slate-500 dark:text-slate-450 dark:text-slate-500 font-semibold">{filteredUsers.length} Users Listed</p>
               </div>
 
               {/* Filters Header */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-white dark:bg-[#12131a] p-4 rounded-2xl shadow-sm dark:shadow-black/10 border border-slate-200 dark:border-slate-800/40">
                 <div className="relative">
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <input
@@ -1100,14 +832,14 @@ export default function AdminPortal() {
                     placeholder="Search name, email, UID..."
                     value={userSearch}
                     onChange={(e) => setUserSearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 rounded-md border border-slate-250 text-xs text-slate-950 outline-none focus:ring-2 focus:ring-blue-700 bg-slate-50"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-250 dark:border-slate-800/50 text-xs text-slate-950 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 bg-slate-50 dark:bg-slate-900/30"
                   />
                 </div>
                 <div>
                   <select
                     value={userStatusFilter}
                     onChange={(e) => setUserStatusFilter(e.target.value)}
-                    className="w-full px-3 py-2 rounded-md border border-slate-200 text-xs text-slate-950 outline-none focus:border-blue-700 bg-slate-50 font-semibold"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800/40 text-xs text-slate-950 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 bg-slate-50 dark:bg-slate-900/30 font-semibold"
                   >
                     <option value="All">All Statuses</option>
                     <option value="Pending">Pending</option>
@@ -1119,7 +851,7 @@ export default function AdminPortal() {
                   <select
                     value={userRoleFilter}
                     onChange={(e) => setUserRoleFilter(e.target.value)}
-                    className="w-full px-3 py-2 rounded-md border border-slate-200 text-xs text-slate-950 outline-none focus:border-blue-700 bg-slate-50 font-semibold"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800/40 text-xs text-slate-950 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 bg-slate-50 dark:bg-slate-900/30 font-semibold"
                   >
                     <option value="All">All Roles</option>
                     <option value="Student">User</option>
@@ -1132,7 +864,7 @@ export default function AdminPortal() {
                   <select
                     value={userSortField}
                     onChange={(e) => setUserSortField(e.target.value)}
-                    className="w-full px-3 py-2 rounded-md border border-slate-200 text-xs text-slate-950 outline-none focus:border-blue-700 bg-slate-50 font-semibold"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800/40 text-xs text-slate-950 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 bg-slate-50 dark:bg-slate-900/30 font-semibold"
                   >
                     <option value="newest">Sort: Newest Registered</option>
                     <option value="oldest">Sort: Oldest Registered</option>
@@ -1142,18 +874,18 @@ export default function AdminPortal() {
               </div>
 
               {/* Users List Table */}
-              <Card className="overflow-x-auto border border-slate-200 bg-white">
+              <Card className="overflow-x-auto border border-slate-200 dark:border-slate-800/40 bg-white dark:bg-[#12131a]">
                 {loadingUsers ? (
                   <div className="flex justify-center items-center py-20">
-                    <Loader2 className="h-8 w-8 text-blue-700 animate-spin" />
+                    <Loader2 className="h-8 w-8 text-blue-700 dark:text-blue-400 animate-spin" />
                   </div>
                 ) : filteredUsers.length === 0 ? (
-                  <div className="p-10 text-center text-slate-500 font-semibold">
+                  <div className="p-10 text-center text-slate-500 dark:text-slate-450 dark:text-slate-500 font-semibold">
                     No users match search filters criteria.
                   </div>
                 ) : (
                   <table className="w-full min-w-[900px] text-left text-xs border-collapse">
-                    <thead className="bg-slate-50 text-slate-500 font-bold uppercase border-b border-slate-200">
+                    <thead className="bg-slate-50 dark:bg-slate-900/30 text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold uppercase border-b border-slate-200 dark:border-slate-800/40">
                       <tr>
                         <th className="px-4 py-3">Name / Email</th>
                         <th className="px-4 py-3">Platform Role</th>
@@ -1163,17 +895,17 @@ export default function AdminPortal() {
                         <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
                       {filteredUsers.map((user) => {
                         const isSelf = user.id === currentUser?.uid;
                         return (
-                          <tr key={user.id} className="hover:bg-slate-50/50 bg-white">
+                          <tr key={user.id} className="hover:bg-slate-50/40 dark:hover:bg-slate-800/30 dark:bg-slate-900/30/50 bg-white dark:bg-[#12131a]">
                             <td className="px-4 py-3.5">
-                              <p className="font-bold text-slate-950 flex items-center gap-1">
+                              <p className="font-bold text-slate-950 dark:text-white flex items-center gap-1">
                                 {user.name}
-                                {isSelf && <span className="text-[9px] bg-blue-100 text-blue-800 font-extrabold px-1 rounded">You</span>}
+                                {isSelf && <span className="text-[9px] bg-blue-100 text-blue-800 dark:text-blue-300 font-extrabold px-1 rounded">You</span>}
                               </p>
-                              <p className="text-slate-455 mt-0.5">{user.email}</p>
+                              <p className="text-slate-455 dark:text-slate-500 mt-0.5">{user.email}</p>
                               <p className="text-[10px] text-slate-400 font-mono mt-0.5">UID: {user.uid || user.id}</p>
                             </td>
                             <td className="px-4 py-3.5 font-bold uppercase tracking-wider text-[10px] text-slate-800">
@@ -1191,16 +923,16 @@ export default function AdminPortal() {
                             <td className="px-4 py-3.5 font-medium">
                               {user.role === 'organization' ? (
                                 <div>
-                                  <p className="text-slate-900 font-semibold">{user.organizationName || 'No Org Assigned'}</p>
+                                  <p className="text-slate-900 dark:text-slate-100 font-semibold">{user.organizationName || 'No Org Assigned'}</p>
                                   {user.organizationRole && (
-                                    <p className="text-[10px] text-slate-450 mt-0.5">Role: {user.organizationRole}</p>
+                                    <p className="text-[10px] text-slate-450 dark:text-slate-500 mt-0.5">Role: {user.organizationRole}</p>
                                   )}
                                 </div>
                               ) : (
                                 <span className="text-slate-400">—</span>
                               )}
                             </td>
-                            <td className="px-4 py-3.5 font-medium text-slate-500">
+                            <td className="px-4 py-3.5 font-medium text-slate-500 dark:text-slate-450 dark:text-slate-500">
                               {user.createdAt?.toDate ? new Date(user.createdAt.toDate()).toLocaleDateString() : 
                                typeof user.createdAt === 'string' ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
                             </td>
@@ -1237,30 +969,30 @@ export default function AdminPortal() {
               {/* Edit User Modal Drawer */}
               {editingUser && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-5">
-                  <Card className="w-full max-w-lg p-6 bg-white border border-slate-200 shadow-xl">
-                    <div className="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
-                      <h3 className="text-lg font-bold text-slate-950">Edit User Role & Mappings</h3>
-                      <button onClick={() => setEditingUser(null)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
+                  <Card className="w-full max-w-lg p-6 bg-white dark:bg-[#12131a] border border-slate-200 dark:border-slate-800/40 shadow-xl dark:shadow-black/35">
+                    <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800/40 pb-3 mb-4">
+                      <h3 className="text-lg font-bold text-slate-950 dark:text-white">Edit User Role & Mappings</h3>
+                      <button onClick={() => setEditingUser(null)} className="text-slate-400 hover:text-slate-700 dark:text-slate-300 cursor-pointer">
                         <XCircle className="h-5 w-5" />
                       </button>
                     </div>
 
                     <form onSubmit={handleSaveUser} className="space-y-4 text-xs font-semibold">
-                      <div className="bg-slate-50 p-3 rounded border border-slate-100 flex items-center gap-2 mb-2">
+                      <div className="bg-slate-50 dark:bg-slate-900/30 p-3 rounded border border-slate-100 dark:border-slate-800/20 flex items-center gap-2 mb-2">
                         <Mail className="h-4 w-4 text-slate-400" />
                         <div>
                           <p className="font-bold text-slate-800">{editingUser.name}</p>
-                          <p className="text-slate-455 mt-0.5">{editingUser.email}</p>
+                          <p className="text-slate-455 dark:text-slate-500 mt-0.5">{editingUser.email}</p>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-slate-500 font-bold uppercase mb-1">Platform Role</label>
+                          <label className="block text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold uppercase mb-1">Platform Role</label>
                           <select
                             value={userForm.role}
                             onChange={(e) => setUserForm(prev => ({ ...prev, role: e.target.value }))}
-                            className="w-full rounded border border-slate-200 px-3 py-2 text-slate-900 focus:border-blue-700 bg-white outline-none"
+                            className="w-full rounded border border-slate-200 dark:border-slate-800/40 px-3 py-2 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 bg-white dark:bg-[#12131a] outline-none"
                           >
                             <option value="student">User</option>
                             <option value="organization">Organization</option>
@@ -1269,11 +1001,11 @@ export default function AdminPortal() {
                           </select>
                         </div>
                         <div>
-                          <label className="block text-slate-500 font-bold uppercase mb-1">Account Status</label>
+                          <label className="block text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold uppercase mb-1">Account Status</label>
                           <select
                             value={userForm.status}
                             onChange={(e) => setUserForm(prev => ({ ...prev, status: e.target.value }))}
-                            className="w-full rounded border border-slate-200 px-3 py-2 text-slate-900 focus:border-blue-700 bg-white outline-none"
+                            className="w-full rounded border border-slate-200 dark:border-slate-800/40 px-3 py-2 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 bg-white dark:bg-[#12131a] outline-none"
                           >
                             <option value="pending">Pending</option>
                             <option value="active">Active</option>
@@ -1284,13 +1016,13 @@ export default function AdminPortal() {
 
                       {/* Organization mapping selection dropdown */}
                       {userForm.role === 'organization' && (
-                        <div className="border-t border-slate-100 pt-3 space-y-3">
+                        <div className="border-t border-slate-100 dark:border-slate-800/20 pt-3 space-y-3">
                           <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wide">Organization Mappings</p>
                           
                           <div className="relative">
-                            <label className="block text-slate-500 font-bold uppercase mb-1">Search Organization</label>
+                            <label className="block text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold uppercase mb-1">Search Organization</label>
                             <div className="relative">
-                              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-450" />
+                              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-450 dark:text-slate-500" />
                               <input
                                 type="text"
                                 placeholder="Search by name..."
@@ -1300,13 +1032,13 @@ export default function AdminPortal() {
                                   setOrgDropdownOpen(true);
                                 }}
                                 onFocus={() => setOrgDropdownOpen(true)}
-                                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded focus:border-blue-700 bg-slate-50"
+                                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 dark:border-slate-800/40 rounded focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 bg-slate-50 dark:bg-slate-900/30"
                               />
                             </div>
 
                             {/* Dropdown elements list */}
                             {orgDropdownOpen && (
-                              <div className="absolute left-0 right-0 z-30 max-h-40 overflow-y-auto mt-1 bg-white border border-slate-200 rounded shadow-lg divide-y divide-slate-100">
+                              <div className="absolute left-0 right-0 z-30 max-h-40 overflow-y-auto mt-1 bg-white dark:bg-[#12131a] border border-slate-200 dark:border-slate-800/40 rounded shadow-lg divide-y divide-slate-100 dark:divide-slate-800/40">
                                 {activeVerifiedOrgs.length > 0 ? (
                                   activeVerifiedOrgs.map((org) => (
                                     <div
@@ -1320,7 +1052,7 @@ export default function AdminPortal() {
                                         setOrgSearchQuery(org.name);
                                         setOrgDropdownOpen(false);
                                       }}
-                                      className="p-2 hover:bg-slate-50 cursor-pointer flex justify-between items-center text-[11px]"
+                                      className="p-2 hover:bg-slate-50/40 dark:hover:bg-slate-800/30 dark:bg-slate-900/30 cursor-pointer flex justify-between items-center text-[11px]"
                                     >
                                       <div>
                                         <p className="font-bold text-slate-800">{org.name}</p>
@@ -1330,7 +1062,7 @@ export default function AdminPortal() {
                                     </div>
                                   ))
                                 ) : (
-                                  <p className="text-[10px] text-slate-505 text-center py-4 bg-slate-50">
+                                  <p className="text-[10px] text-slate-505 text-center py-4 bg-slate-50 dark:bg-slate-900/30">
                                     No Active/Verified organizations match query.
                                   </p>
                                 )}
@@ -1339,7 +1071,7 @@ export default function AdminPortal() {
                           </div>
 
                           {userForm.organizationId && (
-                            <div className="text-[10px] bg-blue-50 text-blue-800 p-2 rounded flex items-center justify-between">
+                            <div className="text-[10px] bg-blue-50 dark:bg-blue-950/20 text-blue-800 dark:text-blue-300 p-2 rounded flex items-center justify-between">
                               <span>Selected: <strong>{userForm.organizationName}</strong> (ID: {userForm.organizationId})</span>
                               <button
                                 type="button"
@@ -1355,11 +1087,11 @@ export default function AdminPortal() {
                           )}
 
                           <div>
-                            <label className="block text-slate-500 font-bold uppercase mb-1">Organization Role Mapping</label>
+                            <label className="block text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold uppercase mb-1">Organization Role Mapping</label>
                             <select
                               value={userForm.organizationRole}
                               onChange={(e) => setUserForm(prev => ({ ...prev, organizationRole: e.target.value }))}
-                              className="w-full rounded border border-slate-200 px-3 py-2 text-slate-900 focus:border-blue-700 bg-white outline-none"
+                              className="w-full rounded border border-slate-200 dark:border-slate-800/40 px-3 py-2 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 bg-white dark:bg-[#12131a] outline-none"
                             >
                               <option value="Admin">Admin</option>
                               <option value="Verifier">Verifier</option>
@@ -1369,7 +1101,7 @@ export default function AdminPortal() {
                         </div>
                       )}
 
-                      <div className="flex gap-2 justify-end pt-4 border-t border-slate-100">
+                      <div className="flex gap-2 justify-end pt-4 border-t border-slate-100 dark:border-slate-800/20">
                         <Button type="button" onClick={() => setEditingUser(null)} variant="secondary">
                           Cancel
                         </Button>
@@ -1387,26 +1119,38 @@ export default function AdminPortal() {
           {/* TAB 3: ORGANIZATIONS PANEL */}
           {activeTab === 'organizations' && (
             <div className="space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-                <h1 className="text-2xl font-bold text-slate-950">Organizations</h1>
+              <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800/40 pb-3">
+                <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Organizations</h1>
                 <Button icon={Plus} onClick={() => setShowCreateOrg(true)} variant="primary">
                   Create Organization
                 </Button>
               </div>
 
+              {/* Search Bar */}
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search organizations by name..."
+                  value={orgSearch}
+                  onChange={(e) => setOrgSearch(e.target.value)}
+                  className="pl-9 pr-4 py-2 w-full text-xs font-semibold text-slate-700 dark:text-slate-200 border border-slate-205 dark:border-slate-800/40 bg-white dark:bg-[#12131a] rounded-xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80"
+                />
+              </div>
+
               {/* Organizations Table */}
-              <Card className="overflow-x-auto border border-slate-200 bg-white">
+              <Card className="overflow-x-auto border border-slate-200 dark:border-slate-800/40 bg-white dark:bg-[#12131a]">
                 {loadingOrgs ? (
                   <div className="flex justify-center items-center py-20">
-                    <Loader2 className="h-8 w-8 text-blue-700 animate-spin" />
+                    <Loader2 className="h-8 w-8 text-blue-700 dark:text-blue-400 animate-spin" />
                   </div>
-                ) : organizations.length === 0 ? (
+                ) : filteredOrganizations.length === 0 ? (
                   <div className="p-10 text-center text-slate-505 font-bold">
-                    No active organizations in Firestore.
+                    No active organizations match query.
                   </div>
                 ) : (
                   <table className="w-full min-w-[850px] text-left text-xs border-collapse">
-                    <thead className="bg-slate-50 text-slate-500 font-bold uppercase border-b border-slate-200">
+                    <thead className="bg-slate-50 dark:bg-slate-900/30 text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold uppercase border-b border-slate-200 dark:border-slate-800/40">
                       <tr>
                         <th className="px-4 py-3">Name / Website</th>
                         <th className="px-4 py-3">Type</th>
@@ -1416,11 +1160,11 @@ export default function AdminPortal() {
                         <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700">
-                      {organizations.map((org) => (
-                        <tr key={org.id} className="hover:bg-slate-50/50 bg-white">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
+                      {filteredOrganizations.map((org) => (
+                        <tr key={org.id} className="hover:bg-slate-50/40 dark:hover:bg-slate-800/30 dark:bg-slate-900/30/50 bg-white dark:bg-[#12131a]">
                           <td className="px-4 py-3.5">
-                            <p className="font-bold text-slate-950">{org.name}</p>
+                            <p className="font-bold text-slate-950 dark:text-white">{org.name}</p>
                             {org.website && (
                               <a
                                 href={`https://${org.website}`}
@@ -1433,12 +1177,12 @@ export default function AdminPortal() {
                               </a>
                             )}
                           </td>
-                          <td className="px-4 py-3.5 font-semibold text-slate-700">{org.type}</td>
+                          <td className="px-4 py-3.5 font-semibold text-slate-700 dark:text-slate-300">{org.type}</td>
                           <td className="px-4 py-3.5">
                             <select
                               value={org.status}
                               onChange={(e) => handleUpdateOrgStatus(org.id, e.target.value, null)}
-                              className="bg-slate-50 rounded border border-slate-205 py-0.5 px-1 font-semibold text-[10px]"
+                              className="bg-slate-50 dark:bg-slate-900/30 rounded border border-slate-205 py-0.5 px-1 font-semibold text-[10px]"
                             >
                               <option value="Active">Active</option>
                               <option value="Pending">Pending</option>
@@ -1450,7 +1194,7 @@ export default function AdminPortal() {
                             <select
                               value={org.verificationStatus}
                               onChange={(e) => handleUpdateOrgStatus(org.id, null, e.target.value)}
-                              className="bg-slate-50 rounded border border-slate-205 py-0.5 px-1 font-semibold text-[10px]"
+                              className="bg-slate-50 dark:bg-slate-900/30 rounded border border-slate-205 py-0.5 px-1 font-semibold text-[10px]"
                             >
                               <option value="Verified">Verified</option>
                               <option value="Verification Expiring">Expiring</option>
@@ -1494,10 +1238,10 @@ export default function AdminPortal() {
               {/* Create Organization Modal */}
               {showCreateOrg && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-5">
-                  <Card className="w-full max-w-lg p-6 bg-white border border-slate-200 shadow-xl">
-                    <div className="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
-                      <h3 className="text-lg font-bold text-slate-950">Create New Organization</h3>
-                      <button onClick={() => setShowCreateOrg(false)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
+                  <Card className="w-full max-w-lg p-6 bg-white dark:bg-[#12131a] border border-slate-200 dark:border-slate-800/40 shadow-xl dark:shadow-black/35">
+                    <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800/40 pb-3 mb-4">
+                      <h3 className="text-lg font-bold text-slate-950 dark:text-white">Create New Organization</h3>
+                      <button onClick={() => setShowCreateOrg(false)} className="text-slate-400 hover:text-slate-700 dark:text-slate-300 cursor-pointer">
                         <XCircle className="h-5 w-5" />
                       </button>
                     </div>
@@ -1505,22 +1249,22 @@ export default function AdminPortal() {
                     <form onSubmit={handleCreateOrg} className="space-y-4 text-xs font-semibold">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-slate-500 font-bold uppercase mb-1">Organization Name</label>
+                          <label className="block text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold uppercase mb-1">Organization Name</label>
                           <input
                             type="text"
                             required
                             placeholder="e.g. Northbridge University"
                             value={newOrgForm.name}
                             onChange={(e) => setNewOrgForm(prev => ({ ...prev, name: e.target.value }))}
-                            className="w-full rounded border border-slate-205 px-3 py-2 text-slate-905 focus:border-blue-700 outline-none"
+                            className="w-full rounded border border-slate-205 px-3 py-2 text-slate-905 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 outline-none"
                           />
                         </div>
                         <div>
-                          <label className="block text-slate-500 font-bold uppercase mb-1">Type</label>
+                          <label className="block text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold uppercase mb-1">Type</label>
                           <select
                             value={newOrgForm.type}
                             onChange={(e) => setNewOrgForm(prev => ({ ...prev, type: e.target.value }))}
-                            className="w-full rounded border border-slate-205 px-3 py-2 text-slate-905 focus:border-blue-700 bg-white outline-none"
+                            className="w-full rounded border border-slate-205 px-3 py-2 text-slate-905 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 bg-white dark:bg-[#12131a] outline-none"
                           >
                             <option value="University">University</option>
                             <option value="Hospital">Hospital</option>
@@ -1533,35 +1277,35 @@ export default function AdminPortal() {
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-slate-500 font-bold uppercase mb-1">Official Email Domain</label>
+                          <label className="block text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold uppercase mb-1">Official Email Domain</label>
                           <input
                             type="text"
                             required
                             placeholder="e.g. northbridge.edu"
                             value={newOrgForm.officialEmailDomain}
                             onChange={(e) => setNewOrgForm(prev => ({ ...prev, officialEmailDomain: e.target.value }))}
-                            className="w-full rounded border border-slate-205 px-3 py-2 text-slate-905 focus:border-blue-700 outline-none"
+                            className="w-full rounded border border-slate-205 px-3 py-2 text-slate-905 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 outline-none"
                           />
                         </div>
                         <div>
-                          <label className="block text-slate-500 font-bold uppercase mb-1">Website</label>
+                          <label className="block text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold uppercase mb-1">Website</label>
                           <input
                             type="text"
                             placeholder="e.g. www.northbridge.edu"
                             value={newOrgForm.website}
                             onChange={(e) => setNewOrgForm(prev => ({ ...prev, website: e.target.value }))}
-                            className="w-full rounded border border-slate-205 px-3 py-2 text-slate-905 focus:border-blue-700 outline-none"
+                            className="w-full rounded border border-slate-205 px-3 py-2 text-slate-905 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 outline-none"
                           />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-slate-500 font-bold uppercase mb-1">Initial Status</label>
+                          <label className="block text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold uppercase mb-1">Initial Status</label>
                           <select
                             value={newOrgForm.status}
                             onChange={(e) => setNewOrgForm(prev => ({ ...prev, status: e.target.value }))}
-                            className="w-full rounded border border-slate-205 px-3 py-2 text-slate-905 focus:border-blue-700 bg-white outline-none"
+                            className="w-full rounded border border-slate-205 px-3 py-2 text-slate-905 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 bg-white dark:bg-[#12131a] outline-none"
                           >
                             <option value="Active">Active</option>
                             <option value="Pending">Pending</option>
@@ -1570,11 +1314,11 @@ export default function AdminPortal() {
                           </select>
                         </div>
                         <div>
-                          <label className="block text-slate-500 font-bold uppercase mb-1">Verification Status</label>
+                          <label className="block text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold uppercase mb-1">Verification Status</label>
                           <select
                             value={newOrgForm.verificationStatus}
                             onChange={(e) => setNewOrgForm(prev => ({ ...prev, verificationStatus: e.target.value }))}
-                            className="w-full rounded border border-slate-205 px-3 py-2 text-slate-905 focus:border-blue-700 bg-white outline-none"
+                            className="w-full rounded border border-slate-205 px-3 py-2 text-slate-905 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 bg-white dark:bg-[#12131a] outline-none"
                           >
                             <option value="Verified">Verified</option>
                             <option value="Verification Expiring">Verification Expiring</option>
@@ -1583,7 +1327,7 @@ export default function AdminPortal() {
                         </div>
                       </div>
 
-                      <div className="flex gap-2 justify-end pt-4 border-t border-slate-100">
+                      <div className="flex gap-2 justify-end pt-4 border-t border-slate-100 dark:border-slate-800/20">
                         <Button type="button" onClick={() => setShowCreateOrg(false)} variant="secondary">
                           Cancel
                         </Button>
@@ -1599,23 +1343,23 @@ export default function AdminPortal() {
               {/* Edit Organization Modal */}
               {editingOrg && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-5">
-                  <Card className="w-full max-w-sm p-6 bg-white border border-slate-200 shadow-xl">
-                    <div className="flex justify-between items-center border-b border-slate-200 pb-3 mb-4">
-                      <h3 className="text-lg font-bold text-slate-950">Edit Organization</h3>
-                      <button onClick={() => setEditingOrg(null)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
+                  <Card className="w-full max-w-sm p-6 bg-white dark:bg-[#12131a] border border-slate-200 dark:border-slate-800/40 shadow-xl dark:shadow-black/35">
+                    <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800/40 pb-3 mb-4">
+                      <h3 className="text-lg font-bold text-slate-950 dark:text-white">Edit Organization</h3>
+                      <button onClick={() => setEditingOrg(null)} className="text-slate-400 hover:text-slate-700 dark:text-slate-300 cursor-pointer">
                         <XCircle className="h-5 w-5" />
                       </button>
                     </div>
 
                     <form onSubmit={handleSaveOrg} className="space-y-4 text-xs font-semibold">
-                      <p className="bg-slate-50 p-2 text-slate-800 rounded font-bold">{editingOrg.name}</p>
+                      <p className="bg-slate-50 dark:bg-slate-900/30 p-2 text-slate-800 rounded font-bold">{editingOrg.name}</p>
                       
                       <div>
-                        <label className="block text-slate-500 font-bold uppercase mb-1">Status</label>
+                        <label className="block text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold uppercase mb-1">Status</label>
                         <select
                           value={orgForm.status}
                           onChange={(e) => setOrgForm(prev => ({ ...prev, status: e.target.value }))}
-                          className="w-full rounded border border-slate-205 px-3 py-2 text-slate-905 focus:border-blue-700 bg-white outline-none"
+                          className="w-full rounded border border-slate-205 px-3 py-2 text-slate-905 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 bg-white dark:bg-[#12131a] outline-none"
                         >
                           <option value="Active">Active</option>
                           <option value="Pending">Pending</option>
@@ -1625,11 +1369,11 @@ export default function AdminPortal() {
                       </div>
 
                       <div>
-                        <label className="block text-slate-500 font-bold uppercase mb-1">Verification Status</label>
+                        <label className="block text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold uppercase mb-1">Verification Status</label>
                         <select
                           value={orgForm.verificationStatus}
                           onChange={(e) => setOrgForm(prev => ({ ...prev, verificationStatus: e.target.value }))}
-                          className="w-full rounded border border-slate-205 px-3 py-2 text-slate-905 focus:border-blue-700 bg-white outline-none"
+                          className="w-full rounded border border-slate-205 px-3 py-2 text-slate-905 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 bg-white dark:bg-[#12131a] outline-none"
                         >
                           <option value="Verified">Verified</option>
                           <option value="Verification Expiring">Verification Expiring</option>
@@ -1637,7 +1381,7 @@ export default function AdminPortal() {
                         </select>
                       </div>
 
-                      <div className="flex gap-2 justify-end pt-4 border-t border-slate-100">
+                      <div className="flex gap-2 justify-end pt-4 border-t border-slate-100 dark:border-slate-800/20">
                         <Button type="button" onClick={() => setEditingOrg(null)} variant="secondary">
                           Cancel
                         </Button>
@@ -1655,13 +1399,13 @@ export default function AdminPortal() {
           {/* TAB 4: VERIFICATION REQUESTS MANAGEMENT PANEL */}
           {activeTab === 'requests' && (
             <div className="space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-                <h1 className="text-2xl font-bold text-slate-950">Verification Requests</h1>
-                <p className="text-xs text-slate-500 font-semibold">{filteredRequests.length} Requests Listed</p>
+              <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800/40 pb-3">
+                <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Verification Requests</h1>
+                <p className="text-xs text-slate-500 dark:text-slate-450 dark:text-slate-500 font-semibold">{filteredRequests.length} Requests Listed</p>
               </div>
 
               {/* Filters Header */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-white dark:bg-[#12131a] p-4 rounded-2xl shadow-sm dark:shadow-black/10 border border-slate-200 dark:border-slate-800/40">
                 <div className="relative">
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <input
@@ -1669,14 +1413,14 @@ export default function AdminPortal() {
                     placeholder="Search name, org, cred, ID..."
                     value={requestSearch}
                     onChange={(e) => setRequestSearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 rounded-md border border-slate-200 text-xs text-slate-955 outline-none focus:ring-2 focus:ring-blue-700 bg-slate-50"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800/40 text-xs text-slate-950 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 bg-slate-50 dark:bg-slate-900/30"
                   />
                 </div>
                 <div>
                   <select
                     value={requestStatusFilter}
                     onChange={(e) => setRequestStatusFilter(e.target.value)}
-                    className="w-full px-3 py-2 rounded-md border border-slate-200 text-xs text-slate-955 outline-none focus:border-blue-700 bg-slate-50 font-semibold"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800/40 text-xs text-slate-950 dark:text-white dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 bg-slate-50 dark:bg-slate-900/30 font-semibold"
                   >
                     <option value="All">All Statuses</option>
                     <option value="Pending">Pending</option>
@@ -1689,7 +1433,7 @@ export default function AdminPortal() {
                   <select
                     value={requestTypeFilter}
                     onChange={(e) => setRequestTypeFilter(e.target.value)}
-                    className="w-full px-3 py-2 rounded-md border border-slate-200 text-xs text-slate-955 outline-none focus:border-blue-700 bg-slate-50 font-semibold"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800/40 text-xs text-slate-950 dark:text-white dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 bg-slate-50 dark:bg-slate-900/30 font-semibold"
                   >
                     <option value="All">All Types</option>
                     <option value="Degree Certificate">Degree Certificate</option>
@@ -1701,10 +1445,10 @@ export default function AdminPortal() {
               </div>
 
               {/* Requests List Table */}
-              <Card className="overflow-x-auto border border-slate-200 bg-white shadow-sm">
+              <Card className="overflow-x-auto border border-slate-200 dark:border-slate-800/40 bg-white dark:bg-[#12131a] shadow-sm dark:shadow-black/10">
                 {loadingRequests ? (
                   <div className="flex justify-center items-center py-20">
-                    <Loader2 className="h-8 w-8 text-blue-700 animate-spin" />
+                    <Loader2 className="h-8 w-8 text-blue-700 dark:text-blue-400 animate-spin" />
                   </div>
                 ) : filteredRequests.length === 0 ? (
                   <div className="p-10 text-center text-slate-505 font-bold">
@@ -1712,7 +1456,7 @@ export default function AdminPortal() {
                   </div>
                 ) : (
                   <table className="w-full min-w-[900px] text-left text-xs border-collapse">
-                    <thead className="bg-slate-50 text-slate-500 font-bold uppercase border-b border-slate-200">
+                    <thead className="bg-slate-50 dark:bg-slate-900/30 text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold uppercase border-b border-slate-200 dark:border-slate-800/40">
                       <tr>
                         <th className="px-4 py-3">Owner / Request ID</th>
                         <th className="px-4 py-3">Credential Type</th>
@@ -1722,12 +1466,12 @@ export default function AdminPortal() {
                         <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
                       {filteredRequests.map((req) => (
-                        <tr key={req.id} className="hover:bg-slate-50/50 bg-white">
+                        <tr key={req.id} className="hover:bg-slate-50/40 dark:hover:bg-slate-800/30 dark:bg-slate-900/30/50 bg-white dark:bg-[#12131a]">
                           <td className="px-4 py-3.5">
-                            <p className="font-bold text-slate-950">{req.ownerName || 'Unknown Owner'}</p>
-                            <p className="text-slate-455 mt-0.5">{req.ownerEmail || 'No Email'}</p>
+                            <p className="font-bold text-slate-950 dark:text-white">{req.ownerName || 'Unknown Owner'}</p>
+                            <p className="text-slate-455 dark:text-slate-500 mt-0.5">{req.ownerEmail || 'No Email'}</p>
                             <p className="text-[10px] text-slate-400 font-mono mt-0.5">ID: {req.id}</p>
                           </td>
                           <td className="px-4 py-3.5 font-semibold text-slate-800">{req.credentialType}</td>
@@ -1739,12 +1483,12 @@ export default function AdminPortal() {
                               req.status === 'Approved' ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200' :
                               req.status === 'Rejected' ? 'bg-red-50 text-red-800 ring-1 ring-red-200' :
                               req.status === 'Information Requested' ? 'bg-amber-50 text-amber-800 ring-1 ring-amber-250' :
-                              'bg-blue-50 text-blue-800 ring-1 ring-blue-200'
+                              'bg-blue-50 dark:bg-blue-950/20 text-blue-800 dark:text-blue-300 ring-1 ring-blue-200'
                             }`}>
                               {req.status}
                             </span>
                           </td>
-                          <td className="px-4 py-3.5 text-slate-500 font-medium">{req.requestDate || 'N/A'}</td>
+                          <td className="px-4 py-3.5 text-slate-500 dark:text-slate-450 dark:text-slate-500 font-medium">{req.requestDate || 'N/A'}</td>
                           <td className="px-4 py-3.5 text-right">
                             <div className="flex gap-2 justify-end">
                               <Button
@@ -1801,28 +1545,28 @@ export default function AdminPortal() {
           {/* TAB 5: TELEMETRY & LIVE ANALYTICS */}
           {activeTab === 'analytics' && (
             <div className="space-y-6">
-              <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-                <h1 className="text-2xl font-bold text-slate-950">Telemetry & Analytics</h1>
-                <span className="text-xs text-slate-500 font-medium">Live Computations</span>
+              <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800/40 pb-3">
+                <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Telemetry & Analytics</h1>
+                <span className="text-xs text-slate-500 dark:text-slate-450 dark:text-slate-500 font-medium">Live Computations</span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 
                 {/* Visual statistics progress meters */}
-                <Card className="p-5 space-y-4 bg-white border border-slate-200 shadow-sm col-span-2">
+                <Card className="p-5 space-y-4 bg-white dark:bg-[#12131a] border border-slate-200 dark:border-slate-800/40 shadow-sm dark:shadow-black/10 col-span-2">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Credential Types distribution</h3>
                   
                   {credentialDistribution.length === 0 ? (
-                    <p className="text-xs text-slate-500 font-bold py-10 text-center">No credential requests recorded in database.</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold py-10 text-center">No credential requests recorded in database.</p>
                   ) : (
                     <div className="space-y-3.5">
                       {credentialDistribution.map((item) => (
                         <div key={item.type} className="space-y-1 text-xs">
                           <div className="flex justify-between font-semibold">
                             <span className="text-slate-800 font-bold">{item.type}</span>
-                            <span className="text-slate-500">{item.count} Requests ({item.percentage}%)</span>
+                            <span className="text-slate-500 dark:text-slate-450 dark:text-slate-500">{item.count} Requests ({item.percentage}%)</span>
                           </div>
-                          <div className="w-full bg-slate-100 rounded-full h-2">
+                          <div className="w-full bg-slate-100 dark:bg-slate-900 rounded-full h-2">
                             <div 
                               className="bg-blue-600 h-2 rounded-full transition-all duration-500" 
                               style={{ width: `${item.percentage}%` }}
@@ -1835,22 +1579,22 @@ export default function AdminPortal() {
                 </Card>
 
                 {/* Top verifying organizations dashboard list */}
-                <Card className="p-5 space-y-4 bg-white border border-slate-200 shadow-sm">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">Top verifiers</h3>
+                <Card className="p-5 space-y-4 bg-white dark:bg-[#12131a] border border-slate-200 dark:border-slate-800/40 shadow-sm dark:shadow-black/10">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800/20 pb-2">Top verifiers</h3>
                   
                   {topOrganizations.length === 0 ? (
-                    <p className="text-xs text-slate-500 font-bold py-10 text-center">No organization activities recorded.</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold py-10 text-center">No organization activities recorded.</p>
                   ) : (
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800/40">
                       {topOrganizations.map((org, index) => (
                         <div key={org.name} className="py-2.5 flex items-center justify-between text-xs font-semibold">
                           <div className="flex items-center gap-2 truncate">
-                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-50 text-blue-700 font-bold text-[10px]">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 font-bold text-[10px]">
                               {index + 1}
                             </span>
-                            <span className="text-slate-850 truncate">{org.name}</span>
+                            <span className="text-slate-850 dark:text-slate-200 truncate">{org.name}</span>
                           </div>
-                          <span className="text-slate-500 font-bold">{org.count} Verifications</span>
+                          <span className="text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold">{org.count} Verifications</span>
                         </div>
                       ))}
                     </div>
@@ -1860,7 +1604,7 @@ export default function AdminPortal() {
 
               {/* Throughput and workload metrics ratios */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="p-5 space-y-3 bg-white border border-slate-200">
+                <Card className="p-5 space-y-3 bg-white dark:bg-[#12131a] border border-slate-200 dark:border-slate-800/40">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Resolution SLA rates</h3>
                   <div className="grid grid-cols-2 gap-4 text-center pt-2">
                     <div className="p-3 bg-emerald-50/50 rounded border border-emerald-100">
@@ -1876,7 +1620,7 @@ export default function AdminPortal() {
                   </div>
                 </Card>
 
-                <Card className="p-5 space-y-3 bg-white border border-slate-200">
+                <Card className="p-5 space-y-3 bg-white dark:bg-[#12131a] border border-slate-200 dark:border-slate-800/40">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Pending workload metrics</h3>
                   <div className="grid grid-cols-2 gap-4 text-center pt-2">
                     <div className="p-3 bg-amber-50/50 rounded border border-amber-100">
@@ -1884,8 +1628,8 @@ export default function AdminPortal() {
                       <p className="text-3xl font-black text-amber-955 mt-1">{stats.pendingRequests}</p>
                       <p className="text-[10px] text-slate-400 mt-1 font-bold">Requires Immediate Attention</p>
                     </div>
-                    <div className="p-3 bg-blue-50/50 rounded border border-blue-100">
-                      <p className="text-xs font-semibold text-blue-800">Information Pending</p>
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950/20/50 rounded border border-blue-100">
+                      <p className="text-xs font-semibold text-blue-800 dark:text-blue-300">Information Pending</p>
                       <p className="text-3xl font-black text-blue-955 mt-1">{stats.infoRequests}</p>
                       <p className="text-[10px] text-slate-400 mt-1 font-bold">Awaiting User Response</p>
                     </div>
@@ -1898,13 +1642,13 @@ export default function AdminPortal() {
           {/* TAB 6: IMMUTABLE AUDIT TRAILS */}
           {activeTab === 'logs' && (
             <div className="space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-                <h1 className="text-2xl font-bold text-slate-950">Audit Trails & Logs</h1>
-                <p className="text-xs text-slate-500 font-semibold">{filteredAuditLogs.length} Entries Recorded</p>
+              <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800/40 pb-3">
+                <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Audit Trails & Logs</h1>
+                <p className="text-xs text-slate-500 dark:text-slate-450 dark:text-slate-500 font-semibold">{filteredAuditLogs.length} Entries Recorded</p>
               </div>
 
               {/* Filters Header */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white dark:bg-[#12131a] p-4 rounded-2xl shadow-sm dark:shadow-black/10 border border-slate-200 dark:border-slate-800/40">
                 <div className="relative">
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <input
@@ -1912,14 +1656,14 @@ export default function AdminPortal() {
                     placeholder="Search logs by actor, action, details..."
                     value={logSearch}
                     onChange={(e) => setLogSearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 rounded-md border border-slate-200 text-xs text-slate-950 outline-none focus:ring-2 focus:ring-blue-700 bg-slate-50"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800/40 text-xs text-slate-950 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 bg-slate-50 dark:bg-slate-900/30"
                   />
                 </div>
                 <div>
                   <select
                     value={logActionFilter}
                     onChange={(e) => setLogActionFilter(e.target.value)}
-                    className="w-full px-3 py-2 rounded-md border border-slate-200 text-xs text-slate-955 outline-none focus:border-blue-700 bg-slate-50 font-semibold"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800/40 text-xs text-slate-950 dark:text-white dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/80 bg-slate-50 dark:bg-slate-900/30 font-semibold"
                   >
                     <option value="All">All Actions</option>
                     <option value="CREATE_USER">CREATE_USER</option>
@@ -1938,10 +1682,10 @@ export default function AdminPortal() {
               </div>
 
               {/* Audit Logs List Table */}
-              <Card className="overflow-x-auto border border-slate-200 bg-white shadow-sm">
+              <Card className="overflow-x-auto border border-slate-200 dark:border-slate-800/40 bg-white dark:bg-[#12131a] shadow-sm dark:shadow-black/10">
                 {loadingAuditLogs ? (
                   <div className="flex justify-center items-center py-20">
-                    <Loader2 className="h-8 w-8 text-blue-700 animate-spin" />
+                    <Loader2 className="h-8 w-8 text-blue-700 dark:text-blue-400 animate-spin" />
                   </div>
                 ) : filteredAuditLogs.length === 0 ? (
                   <div className="p-10 text-center text-slate-505 font-bold">
@@ -1950,7 +1694,7 @@ export default function AdminPortal() {
                 ) : (
                   <div className="p-4 space-y-4">
                     <table className="w-full min-w-[850px] text-left text-xs border-collapse">
-                      <thead className="bg-slate-50 text-slate-500 font-bold uppercase border-b border-slate-200">
+                      <thead className="bg-slate-50 dark:bg-slate-900/30 text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold uppercase border-b border-slate-200 dark:border-slate-800/40">
                         <tr>
                           <th className="px-4 py-3">Timestamp</th>
                           <th className="px-4 py-3">Actor Email / ID</th>
@@ -1959,33 +1703,33 @@ export default function AdminPortal() {
                           <th className="px-4 py-3 font-medium">Details</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300 font-medium">
                         {paginatedAuditLogs.map((log) => (
-                          <tr key={log.id} className="hover:bg-slate-50/50 bg-white">
-                            <td className="px-4 py-3.5 whitespace-nowrap text-slate-500 font-mono text-[10px]">
+                          <tr key={log.id} className="hover:bg-slate-50/40 dark:hover:bg-slate-800/30 dark:bg-slate-900/30/50 bg-white dark:bg-[#12131a]">
+                            <td className="px-4 py-3.5 whitespace-nowrap text-slate-500 dark:text-slate-450 dark:text-slate-500 font-mono text-[10px]">
                               {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A'}
                             </td>
                             <td className="px-4 py-3.5">
-                              <p className="font-bold text-slate-900">{log.actorEmail}</p>
-                              <p className="text-[10px] text-slate-450 mt-0.5">ID: {log.actorId}</p>
+                              <p className="font-bold text-slate-900 dark:text-slate-100">{log.actorEmail}</p>
+                              <p className="text-[10px] text-slate-450 dark:text-slate-500 mt-0.5">ID: {log.actorId}</p>
                             </td>
                             <td className="px-4 py-3.5">
-                              <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-800 font-extrabold text-[9px] tracking-wide uppercase border border-slate-200">
+                              <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-900 text-slate-800 font-extrabold text-[9px] tracking-wide uppercase border border-slate-200 dark:border-slate-800/40">
                                 {log.action}
                               </span>
                             </td>
                             <td className="px-4 py-3.5">
-                              <p className="font-bold text-slate-850">{log.targetName}</p>
+                              <p className="font-bold text-slate-850 dark:text-slate-200">{log.targetName}</p>
                               <p className="text-[10px] text-slate-400 mt-0.5">ID: {log.targetId}</p>
                             </td>
-                            <td className="px-4 py-3.5 text-slate-600 max-w-xs truncate">{log.details}</td>
+                            <td className="px-4 py-3.5 text-slate-600 dark:text-slate-450 dark:text-slate-500 max-w-xs truncate">{log.details}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
 
-                    <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-                      <span className="text-[11px] text-slate-500 font-semibold">
+                    <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800/20 pt-3">
+                      <span className="text-[11px] text-slate-500 dark:text-slate-450 dark:text-slate-500 font-semibold">
                         Page {logPage} of {Math.ceil(filteredAuditLogs.length / 10) || 1} ({filteredAuditLogs.length} entries)
                       </span>
                       <div className="flex gap-2">
@@ -1993,7 +1737,7 @@ export default function AdminPortal() {
                           type="button"
                           disabled={logPage === 1}
                           onClick={() => setLogPage(prev => Math.max(prev - 1, 1))}
-                          className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-[10px] font-bold text-slate-800 border border-slate-200 rounded disabled:opacity-40 cursor-pointer"
+                          className="px-3 py-1 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 text-[10px] font-bold text-slate-800 border border-slate-200 dark:border-slate-800/40 rounded disabled:opacity-40 cursor-pointer"
                         >
                           Previous
                         </button>
@@ -2001,7 +1745,7 @@ export default function AdminPortal() {
                           type="button"
                           disabled={logPage >= Math.ceil(filteredAuditLogs.length / 10)}
                           onClick={() => setLogPage(prev => Math.min(prev + 1, Math.ceil(filteredAuditLogs.length / 10)))}
-                          className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-[10px] font-bold text-slate-800 border border-slate-200 rounded disabled:opacity-40 cursor-pointer"
+                          className="px-3 py-1 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 text-[10px] font-bold text-slate-800 border border-slate-200 dark:border-slate-800/40 rounded disabled:opacity-40 cursor-pointer"
                         >
                           Next
                         </button>
@@ -2016,22 +1760,22 @@ export default function AdminPortal() {
           {/* TAB 7: GLOBAL PLATFORM SETTINGS */}
           {activeTab === 'settings' && (
             <div className="space-y-6">
-              <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-                <h1 className="text-2xl font-bold text-slate-950">Platform Config Settings</h1>
-                <span className="text-xs text-slate-500 font-medium">Global Properties</span>
+              <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800/40 pb-3">
+                <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Platform Config Settings</h1>
+                <span className="text-xs text-slate-500 dark:text-slate-450 dark:text-slate-500 font-medium">Global Properties</span>
               </div>
 
-              <Card className="p-6 bg-white border border-slate-200 shadow-sm max-w-xl">
+              <Card className="p-6 bg-white dark:bg-[#12131a] border border-slate-200 dark:border-slate-800/40 shadow-sm dark:shadow-black/10 max-w-xl">
                 <form onSubmit={handleSaveSettings} className="space-y-5 text-xs font-semibold">
                   
                   {/* Maintenance mode switch toggle */}
-                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded border border-slate-150">
+                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/30 rounded border border-slate-200/60 dark:border-slate-800/40">
                     <div>
-                      <p className="text-slate-900 font-extrabold text-sm flex items-center gap-1.5">
+                      <p className="text-slate-900 dark:text-slate-100 font-extrabold text-sm flex items-center gap-1.5">
                         <ShieldAlert className="h-4 w-4 text-slate-550" />
                         Platform Maintenance Mode
                       </p>
-                      <p className="text-[10px] text-slate-450 mt-0.5">
+                      <p className="text-[10px] text-slate-450 dark:text-slate-500 mt-0.5">
                         Locks the site down showing a maintenance banner for non-admin profiles.
                       </p>
                     </div>
@@ -2042,18 +1786,18 @@ export default function AdminPortal() {
                         onChange={(e) => setPlatformSettings(prev => ({ ...prev, maintenanceMode: e.target.checked }))}
                         className="sr-only peer"
                       />
-                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-[#12131a] after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
 
                   {/* Self registration switch toggle */}
-                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded border border-slate-150">
+                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/30 rounded border border-slate-200/60 dark:border-slate-800/40">
                     <div>
-                      <p className="text-slate-900 font-extrabold text-sm flex items-center gap-1.5">
+                      <p className="text-slate-900 dark:text-slate-100 font-extrabold text-sm flex items-center gap-1.5">
                         <UsersIcon className="h-4 w-4 text-slate-550" />
                         Allow Self-Registration
                       </p>
-                      <p className="text-[10px] text-slate-450 mt-0.5">
+                      <p className="text-[10px] text-slate-450 dark:text-slate-500 mt-0.5">
                         Enables new visitors to sign up and establish user profile documents.
                       </p>
                     </div>
@@ -2064,21 +1808,21 @@ export default function AdminPortal() {
                         onChange={(e) => setPlatformSettings(prev => ({ ...prev, allowSelfRegistration: e.target.checked }))}
                         className="sr-only peer"
                       />
-                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-[#12131a] after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
 
                   {/* Maximum Upload Size parameter */}
-                  <div className="p-4 bg-slate-50 rounded border border-slate-150 space-y-2">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-900/30 rounded border border-slate-200/60 dark:border-slate-800/40 space-y-2">
                     <div className="flex justify-between items-center">
-                      <p className="text-slate-900 font-extrabold text-sm">
+                      <p className="text-slate-900 dark:text-slate-100 font-extrabold text-sm">
                         Maximum Document Upload Size
                       </p>
-                      <span className="bg-blue-50 text-blue-800 font-bold px-2 py-0.5 rounded text-[10px]">
+                      <span className="bg-blue-50 dark:bg-blue-950/20 text-blue-800 dark:text-blue-300 font-bold px-2 py-0.5 rounded text-[10px]">
                         {platformSettings.maxUploadSizeMb} MB
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-455 leading-relaxed">
+                    <p className="text-[10px] text-slate-455 dark:text-slate-500 leading-relaxed">
                       Defines the size boundaries for users uploading verification credential files.
                     </p>
                     <input 
@@ -2088,11 +1832,11 @@ export default function AdminPortal() {
                       step="5"
                       value={platformSettings.maxUploadSizeMb}
                       onChange={(e) => setPlatformSettings(prev => ({ ...prev, maxUploadSizeMb: parseInt(e.target.value) }))}
-                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer focus:outline-none mt-2"
+                      className="w-full h-1.5 bg-slate-200 rounded-2xl appearance-none cursor-pointer focus:outline-none mt-2"
                     />
                   </div>
 
-                  <div className="flex gap-2 justify-end pt-4 border-t border-slate-100">
+                  <div className="flex gap-2 justify-end pt-4 border-t border-slate-100 dark:border-slate-800/20">
                     <Button 
                       type="button" 
                       onClick={handleResetSettings} 
