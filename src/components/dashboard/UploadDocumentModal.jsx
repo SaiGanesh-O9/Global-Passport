@@ -54,6 +54,7 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest }) 
   const [selectedOrg, setSelectedOrg] = useState(null);
   const [files, setFiles] = useState([]);
   const [purpose, setPurpose] = useState('');
+  const [consentApproved, setConsentApproved] = useState(false);
 
   // Submit states
   const [submitting, setSubmitting] = useState(false);
@@ -77,6 +78,7 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest }) 
       setPurpose('');
       setSubmitProgress('');
       setSubmitting(false);
+      setConsentApproved(false);
     }
   }, [isOpen, targetRequest]);
 
@@ -497,6 +499,20 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest }) 
                     </div>
                   </div>
 
+                  {/* Consent & Approval Checkbox */}
+                  <div className="flex items-start gap-3 p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl mt-4">
+                    <input
+                      id="consent-checkbox"
+                      type="checkbox"
+                      checked={consentApproved}
+                      onChange={(e) => setConsentApproved(e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-350 dark:border-slate-800 text-blue-600 focus:ring-blue-500 mt-0.5 cursor-pointer"
+                    />
+                    <label htmlFor="consent-checkbox" className="text-[10px] text-slate-550 dark:text-slate-400 font-bold leading-normal cursor-pointer select-none">
+                      I consent to uploading and sharing this document with <strong>{selectedOrg?.name}</strong>. I authorize the organization to review and verify this credential.
+                    </label>
+                  </div>
+
                   <div className="flex justify-between pt-4 border-t border-slate-200/50 dark:border-slate-800/40">
                     <Button icon={ArrowLeft} onClick={() => setStep(3)} variant="secondary">
                       Back
@@ -505,7 +521,7 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest }) 
                       <Button onClick={handleClose} variant="secondary">
                         Cancel
                       </Button>
-                      <Button onClick={handleSubmit} variant="primary">
+                      <Button onClick={handleSubmit} variant="primary" disabled={!consentApproved}>
                         Submit Request
                       </Button>
                     </div>
