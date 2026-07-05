@@ -37,5 +37,6 @@ export {
   orderBy,
   limit,
   getDoc,
+  getDocs,
   serverTimestamp,
 } from 'firebase/firestore';

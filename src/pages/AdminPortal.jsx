@@ -6,6 +6,7 @@ import { useDocumentActions } from '../hooks/useDocumentActions.js';
 import Button from '../components/ui/Button.jsx';
 import Card from '../components/ui/Card.jsx';
 import ThemeToggle from '../components/ui/ThemeToggle.jsx';
+import UniversalDocumentViewer from '../components/dashboard/UniversalDocumentViewer.jsx';
 import {
   Users as UsersIcon,
   Building2,
@@ -50,12 +51,15 @@ export default function AdminPortal() {
   // Active workspace tab
   const [activeTab, setActiveTab] = useState('overview'); // overview | users | organizations | requests | analytics | logs | settings
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedViewerDoc, setSelectedViewerDoc] = useState(null);
 
   // Consumed from centralized DocumentProvider state context
   const {
     users,
     organizations,
     verificationRequests: requests,
+    verificationServices,
+    credentialTemplates,
     auditLogs,
     platformSettings,
     loading
@@ -636,6 +640,8 @@ export default function AdminPortal() {
               { id: 'users', label: 'Users', icon: UsersIcon },
               { id: 'organizations', label: 'Organizations', icon: Building2 },
               { id: 'requests', label: 'Requests', icon: FileCheck2 },
+              { id: 'catalog', label: 'Credential Catalog', icon: ClipboardList },
+              { id: 'overrides', label: 'Overrides Panel', icon: ShieldAlert },
               { id: 'analytics', label: 'Analytics', icon: PieChart },
               { id: 'logs', label: 'Audit Logs', icon: FileText },
               { id: 'settings', label: 'Settings', icon: Settings },
@@ -1858,9 +1864,157 @@ export default function AdminPortal() {
               </Card>
             </div>
           )}
+          {/* TAB 8: CREDENTIAL CATALOG */}
+          {activeTab === 'catalog' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center border-b border-slate-205 dark:border-slate-800/40 pb-3">
+                <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Credential Catalog</h1>
+                <span className="text-xs text-slate-500 font-medium">Global Checklists</span>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {organizations.map(org => {
+                  const services = (verificationServices || []).filter(s => s.organizationId === org.id);
+                  if (services.length === 0) return null;
+                  return (
+                    <Card key={org.id} className="p-5 bg-white dark:bg-[#12131a] border border-slate-205 dark:border-slate-800/40">
+                      <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-3">{org.name}</h3>
+                      <div className="space-y-3">
+                        {services.map(s => {
+                          const template = (credentialTemplates || []).find(t => t.serviceId === s.id);
+                          const reqs = [
+                            ...(template?.requiredCredentials || []).map(c => ({ ...c, required: true })),
+                            ...(template?.optionalCredentials || []).map(c => ({ ...c, required: false }))
+                          ];
+                          return (
+                            <div key={s.id} className="p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800/40 rounded-xl space-y-1 text-xs font-semibold">
+                              <h4 className="font-extrabold text-slate-900 dark:text-white">{s.name}</h4>
+                              <div className="space-y-1 pl-2 text-[10px] text-slate-500 dark:text-slate-400">
+                                {reqs.length > 0 ? reqs.map((r, i) => (
+                                  <div key={i}>
+                                    • {r.type} <span className="text-[9px] uppercase font-bold">({r.required ? 'Required' : 'Optional'})</span>
+                                  </div>
+                                )) : <span className="italic text-slate-400">No template items configured</span>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 9: OVERRIDES PANEL */}
+          {activeTab === 'overrides' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800/40 pb-3">
+                <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Administrative Overrides</h1>
+                <span className="text-xs text-rose-600 font-bold uppercase tracking-wider">Supreme Authority Control</span>
+              </div>
+              <Card className="p-6 bg-white dark:bg-[#12131a] border border-slate-200 dark:border-slate-800/40">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left text-slate-500 font-semibold">
+                    <thead className="text-[10px] text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-slate-900/60">
+                      <tr>
+                        <th className="px-4 py-3">Owner</th>
+                        <th className="px-4 py-3">Organization</th>
+                        <th className="px-4 py-3">Service</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Documents</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/40">
+                      {requests.length > 0 ? (
+                        requests.map(req => (
+                          <tr key={req.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20">
+                            <td className="px-4 py-3 font-bold text-slate-950 dark:text-white">{req.ownerEmail}</td>
+                            <td className="px-4 py-3">{req.organizationName || req.requestedOrganization}</td>
+                            <td className="px-4 py-3">{req.serviceName || req.credentialType}</td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                req.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-700' : req.status === 'Rejected' ? 'bg-rose-500/10 text-rose-700' : 'bg-blue-500/10 text-blue-700'
+                              }`}>
+                                {req.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              {req.documentReferences && req.documentReferences.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {req.documentReferences.map((docRef, dIdx) => (
+                                    <button
+                                      key={dIdx}
+                                      onClick={() => setSelectedViewerDoc(docRef)}
+                                      className="px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300 rounded text-[9px] hover:underline cursor-pointer font-bold"
+                                    >
+                                      {docRef.type}
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : <span className="text-slate-400 italic">No files</span>}
+                            </td>
+                            <td className="px-4 py-3 text-right space-x-1.5 whitespace-nowrap">
+                              <button
+                                onClick={async () => {
+                                  const reason = prompt('Specify override reason:');
+                                  if (reason) {
+                                    await transitionRequestStatus(req.id, 'Approved', 'ADMIN_OVERRIDE_APPROVE', `Admin Override: Approved (Reason: "${reason}")`, currentUser?.email || 'admin@localhost', currentUser?.uid || 'admin-uid');
+                                    alert('Request overridden to Approved.');
+                                  }
+                                }}
+                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-extrabold cursor-pointer"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  const reason = prompt('Specify override reason:');
+                                  if (reason) {
+                                    await transitionRequestStatus(req.id, 'Rejected', 'ADMIN_OVERRIDE_REJECT', `Admin Override: Rejected (Reason: "${reason}")`, currentUser?.email || 'admin@localhost', currentUser?.uid || 'admin-uid');
+                                    alert('Request overridden to Rejected.');
+                                  }
+                                }}
+                                className="px-2 py-1 bg-rose-600 hover:bg-rose-750 text-white rounded text-[10px] font-extrabold cursor-pointer"
+                              >
+                                Reject
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  const reason = prompt('Specify reopen reason:');
+                                  if (reason) {
+                                    await transitionRequestStatus(req.id, 'Pending', 'ADMIN_OVERRIDE_REOPEN', `Admin Override: Reopened (Reason: "${reason}")`, currentUser?.email || 'admin@localhost', currentUser?.uid || 'admin-uid');
+                                    alert('Request reopened.');
+                                  }
+                                }}
+                                className="px-2 py-1 bg-slate-105 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-800 text-[10px] font-extrabold cursor-pointer"
+                              >
+                                Reopen
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="6" className="text-center py-6 text-slate-450 font-bold">No request logs found.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </div>
+          )}
 
         </main>
       </div>
+      {selectedViewerDoc && (
+        <UniversalDocumentViewer
+          document={selectedViewerDoc}
+          onClose={() => setSelectedViewerDoc(null)}
+        />
+      )}
     </div>
   );
 }

@@ -1,101 +1,184 @@
-import { organizationInboxRequests, userVerificationRequests } from '../data/sprintData.js';
-import {
-  createDocumentId,
-  VERIFICATION_STATUS,
-  formatVerificationDate,
-  generateDocumentHash,
-  generateVerificationId,
-  createTimelineEntry,
-} from './documentUtils.js';
+import { VERIFICATION_STATUS } from './documentUtils.js';
 
-const ORG_MAP = {
-  'Northbridge University': { id: 'org-northbridge', name: 'Northbridge University', type: 'University' },
-  'Apollo Hospitals': { id: 'org-apollo', name: 'Apollo Hospitals', type: 'Hospital' },
-  'Infosys': { id: 'org-infosys', name: 'Infosys', type: 'Employer' },
-};
+export const defaultOrganizationProfiles = [
+  {
+    id: 'org-northbridge',
+    name: 'Northbridge University',
+    description: 'A leading public research university specializing in science, technology, and engineering.',
+    category: 'University',
+    logo: null,
+    contactEmail: 'admissions@northbridge.edu',
+    website: 'www.northbridge.edu',
+    address: '100 University Ave, Northbridge, NB',
+    status: 'Active',
+    supportedCredentialTypes: ['Degree Certificate', 'Academic Transcript', 'Passport', 'Academic Essay']
+  },
+  {
+    id: 'org-apollo',
+    name: 'Apollo Hospitals',
+    description: "One of Asia's largest healthcare groups offering multi-specialty clinical care.",
+    category: 'Hospital',
+    logo: null,
+    contactEmail: 'verification@apollohospitals.com',
+    website: 'www.apollohospitals.com',
+    address: '25 Medical Road, Apollo City',
+    status: 'Active',
+    supportedCredentialTypes: ['Medical License', 'Government Certificate']
+  },
+  {
+    id: 'org-infosys',
+    name: 'Infosys',
+    description: 'A global leader in next-generation digital services and consulting.',
+    category: 'Employer',
+    logo: null,
+    contactEmail: 'hr.verification@infosys.com',
+    website: 'www.infosys.com',
+    address: 'Electronics City, Bangalore, India',
+    status: 'Active',
+    supportedCredentialTypes: ['Employment Certificate', 'Professional Certification']
+  }
+];
 
-function seedUserVerificationRequests(uid) {
-  return userVerificationRequests.map((request, index) => {
-    const status = request.status === 'Completed' ? VERIFICATION_STATUS.APPROVED : request.status;
-    const isApproved = status === VERIFICATION_STATUS.APPROVED;
-    const isRejected = status === VERIFICATION_STATUS.REJECTED;
+export const defaultVerificationServices = [
+  {
+    id: 'service-degree',
+    organizationId: 'org-northbridge',
+    name: 'Degree Verification',
+    description: 'Verify official student degrees and graduation records.',
+    status: 'Published'
+  },
+  {
+    id: 'service-admission',
+    organizationId: 'org-northbridge',
+    name: 'Student Admission',
+    description: 'Submit academic transcripts and identities for admissions verification.',
+    status: 'Published'
+  },
+  {
+    id: 'service-scholarship',
+    organizationId: 'org-northbridge',
+    name: 'Scholarship Verification',
+    description: 'Verify eligibility records for university scholarships.',
+    status: 'Published'
+  }
+];
 
-    const timeline = [
-      createTimelineEntry('Verification Request Submitted', VERIFICATION_STATUS.PENDING, new Date(2026, 5, 28))
-    ];
-
-    if (isApproved) {
-      timeline.push(
-        createTimelineEntry('Verification Approved by Organization', VERIFICATION_STATUS.APPROVED, new Date(2026, 6, 4))
-      );
-    } else if (isRejected) {
-      timeline.push(
-        createTimelineEntry('Verification Rejected by Organization', VERIFICATION_STATUS.REJECTED, new Date(2026, 6, 4))
-      );
-    }
-
-    const org = ORG_MAP[request.requestedOrganization] || { id: 'org-northbridge', name: request.requestedOrganization, type: 'University' };
-
-    return {
-      id: createDocumentId(),
-      credentialType: request.credentialType,
-      requestedOrganization: request.requestedOrganization,
-      organization: org,
-      organizationId: org.id,
-      purpose: request.purpose || 'Verification',
-      fileName: `${request.credentialType.replace(/\s+/g, '-').toLowerCase()}.pdf`,
-      requestDate: request.requestDate,
-      status: status,
-      owner: {
-        uid: uid || 'dev-user-uid',
-        name: 'Development User',
-        email: 'dev-user@localhost',
-      },
-      ownerId: uid || 'dev-user-uid',
-      ownerName: 'Development User',
-      ownerEmail: 'dev-user@localhost',
-      timeline,
-      ...(isApproved
-        ? {
-            verificationId: index === 0 ? 'VF-8F4291' : generateVerificationId(),
-            verifiedAt: formatVerificationDate(new Date(2026, 6, 4)),
-            hash: index === 0 ? '0x8f42...91bd' : generateDocumentHash(),
-          }
-        : {}),
-    };
-  });
-}
-
-function seedOrganizationVerificationRequests(uid) {
-  return organizationInboxRequests.map((request) => {
-    const org = ORG_MAP[request.requestedOrganization] || { id: 'org-northbridge', name: request.requestedOrganization, type: 'University' };
-    return {
-      id: createDocumentId(),
-      credentialType: request.credentialType,
-      requestedOrganization: request.requestedOrganization,
-      organization: org,
-      organizationId: org.id,
-      purpose: 'Verification',
-      fileName: `${request.credentialType.replace(/\s+/g, '-').toLowerCase()}.pdf`,
-      requestDate: request.requestDate,
-      status: VERIFICATION_STATUS.PENDING,
-      owner: {
-        uid: 'some-student-uid',
-        name: request.requester,
-        email: `${request.requester.toLowerCase().replace(/\s+/g, '')}@localhost`,
-      },
-      ownerId: 'some-student-uid',
-      ownerName: request.requester,
-      ownerEmail: `${request.requester.toLowerCase().replace(/\s+/g, '')}@localhost`,
-      timeline: [
-        createTimelineEntry('Verification Request Submitted', VERIFICATION_STATUS.PENDING, new Date(2026, 6, 1))
-      ],
-    };
-  });
-}
+export const defaultCredentialTemplates = [
+  {
+    id: 'template-degree',
+    serviceId: 'service-degree',
+    requiredCredentials: [
+      { type: 'Degree Certificate', required: true, maxFileSize: 5242880, acceptedFileTypes: ['.pdf'] },
+      { type: 'Transcript', required: true, maxFileSize: 5242880, acceptedFileTypes: ['.pdf'] }
+    ],
+    optionalCredentials: [
+      { type: 'Passport', required: false, maxFileSize: 2097152, acceptedFileTypes: ['.pdf', '.png', '.jpg'] }
+    ],
+    instructions: 'Please upload your official degree certificate and academic transcript.'
+  },
+  {
+    id: 'template-admission',
+    serviceId: 'service-admission',
+    requiredCredentials: [
+      { type: 'Transcript', required: true, maxFileSize: 5242880, acceptedFileTypes: ['.pdf'] },
+      { type: 'Passport', required: true, maxFileSize: 2097152, acceptedFileTypes: ['.pdf', '.png', '.jpg'] }
+    ],
+    optionalCredentials: [
+      { type: 'Academic Essay', required: false, maxFileSize: 10485760, acceptedFileTypes: ['.pdf'] }
+    ],
+    instructions: 'Upload your final transcripts and a valid passport copy.'
+  },
+  {
+    id: 'template-scholarship',
+    serviceId: 'service-scholarship',
+    requiredCredentials: [
+      { type: 'Academic Essay', required: true, maxFileSize: 10485760, acceptedFileTypes: ['.pdf'] },
+      { type: 'Transcript', required: true, maxFileSize: 5242880, acceptedFileTypes: ['.pdf'] }
+    ],
+    optionalCredentials: [
+      { type: 'Government Certificate', required: false, maxFileSize: 2097152, acceptedFileTypes: ['.pdf', '.png', '.jpg'] }
+    ],
+    instructions: 'Submit your scholarship essay and academic records.'
+  }
+];
 
 export function createInitialDocumentState(uid) {
+  // Static seed values for student credentials
+  const defaultCredentials = [
+    {
+      id: 'cred-essay',
+      type: 'Academic Essay',
+      ownerEmail: 'student@localhost',
+      status: 'Approved',
+      verifiedAt: 'Jun 15, 2026',
+      verifiedBy: 'Northbridge University',
+      expiresAt: 'Jun 15, 2030',
+      isReusable: true,
+      isExpired: false
+    },
+    {
+      id: 'cred-passport',
+      type: 'Passport',
+      ownerEmail: 'student@localhost',
+      status: 'Approved',
+      verifiedAt: 'Jun 10, 2026',
+      verifiedBy: 'City Civic Office',
+      expiresAt: 'Jun 10, 2030',
+      isReusable: true,
+      isExpired: false
+    },
+    {
+      id: 'cred-degree',
+      type: 'Degree Certificate',
+      ownerEmail: 'student@localhost',
+      status: 'Approved',
+      verifiedAt: 'Jul 02, 2026',
+      verifiedBy: 'Northbridge University',
+      expiresAt: 'Jul 02, 2030',
+      isReusable: true,
+      isExpired: false
+    }
+  ];
+
+  const defaultDocuments = [
+    {
+      id: 'doc-essay',
+      credentialId: 'cred-essay',
+      fileName: 'academic-essay.pdf',
+      fileUrl: '',
+      version: 1,
+      uploadedAt: 'Jun 15, 2026',
+      uploadMode: 'local',
+      storageStatus: 'disabled'
+    },
+    {
+      id: 'doc-passport',
+      credentialId: 'cred-passport',
+      fileName: 'passport.pdf',
+      fileUrl: '',
+      version: 1,
+      uploadedAt: 'Jun 10, 2026',
+      uploadMode: 'local',
+      storageStatus: 'disabled'
+    },
+    {
+      id: 'doc-degree',
+      credentialId: 'cred-degree',
+      fileName: 'degree-certificate.pdf',
+      fileUrl: '',
+      version: 1,
+      uploadedAt: 'Jul 02, 2026',
+      uploadMode: 'local',
+      storageStatus: 'disabled'
+    }
+  ];
+
   return {
-    verificationRequests: [...seedUserVerificationRequests(uid), ...seedOrganizationVerificationRequests(uid)],
+    organizationProfiles: defaultOrganizationProfiles,
+    verificationServices: defaultVerificationServices,
+    credentialTemplates: defaultCredentialTemplates,
+    credentials: defaultCredentials,
+    documents: defaultDocuments,
+    verificationRequests: []
   };
 }

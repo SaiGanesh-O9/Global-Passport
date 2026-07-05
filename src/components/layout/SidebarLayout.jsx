@@ -1,7 +1,9 @@
-import { FileCheck2, Bell, Search, User } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { FileCheck2, Bell, Search, User, Check, Archive, Trash, ExternalLink } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useDocuments } from '../../hooks/useDocuments.js';
+import { db, collection, query, where, orderBy, onSnapshot, updateDoc, doc } from '../../firebase/firebase.js';
 import ThemeToggle from '../ui/ThemeToggle.jsx';
 import Avatar from '../ui/Avatar.jsx';
 import Breadcrumbs from '../ui/Breadcrumbs.jsx';
@@ -10,6 +12,60 @@ export default function SidebarLayout({ children, navItems, subtitle, title }) {
   const { logout, currentUser, userProfile, loginAsDeveloper } = useAuth();
   const { selectedRequest } = useDocuments();
   const navigate = useNavigate();
+
+  const [notifications, setNotifications] = useState([]);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    // Subscribe to in-app notifications
+    const q = query(
+      collection(db, 'notifications'),
+      where('recipientEmail', '==', currentUser.email || 'student@localhost'),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const unsub = onSnapshot(q, (snap) => {
+      const list = [];
+      snap.forEach(d => {
+        list.push({ id: d.id, ...d.data() });
+      });
+      setNotifications(list);
+    }, (err) => {
+      console.warn("Notifications subscription error:", err.message);
+    });
+    
+    return () => unsub();
+  }, [currentUser]);
+
+  const markAsRead = async (id) => {
+    try {
+      await updateDoc(doc(db, 'notifications', id), { read: true });
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  const archiveNotif = async (id) => {
+    try {
+      await updateDoc(doc(db, 'notifications', id), { archived: true });
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const unreads = notifications.filter(n => !n.read);
+      await Promise.all(unreads.map(n => updateDoc(doc(db, 'notifications', n.id), { read: true })));
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  const visibleNotifications = notifications.filter(n => !n.archived);
+  const unreadCount = visibleNotifications.filter(n => !n.read).length;
 
   const handleLogout = async () => {
     await logout();
@@ -50,22 +106,26 @@ export default function SidebarLayout({ children, navItems, subtitle, title }) {
 
           {/* Navigation links */}
           <nav className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-1">
-            {navItems.map((item) => (
-              <NavLink
-                className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-bold transition-all duration-150 active:scale-[0.98] ${
-                    isActive
+            {navItems.map((item) => {
+              const currentHash = (window.location.hash || '#dashboard').replace('#', '');
+              const targetHash = (item.to.split('#')[1] || 'dashboard');
+              const isLinkActive = currentHash === targetHash;
+
+              return (
+                <NavLink
+                  className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-bold transition-all duration-150 active:scale-[0.98] ${
+                    isLinkActive
                       ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
                       : 'text-slate-550 dark:text-slate-400 hover:bg-slate-100/60 dark:hover:bg-slate-800/20 hover:text-slate-850 dark:hover:text-slate-200'
-                  }`
-                }
-                key={item.label}
-                to={item.to}
-              >
-                <item.icon className="h-4.5 w-4.5 text-current shrink-0" />
-                {item.label}
-              </NavLink>
-            ))}
+                  }`}
+                  key={item.label}
+                  to={item.to}
+                >
+                  <item.icon className="h-4.5 w-4.5 text-current shrink-0" />
+                  {item.label}
+                </NavLink>
+              );
+            })}
           </nav>
         </div>
 
@@ -167,10 +227,103 @@ export default function SidebarLayout({ children, navItems, subtitle, title }) {
             {/* Theme Toggle switch component */}
             <ThemeToggle />
             
-            {/* Notification bell placeholder */}
-            <button disabled className="p-2 rounded-xl border border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-900/40 text-slate-400 cursor-not-allowed">
-              <Bell className="h-4.5 w-4.5" />
-            </button>
+            {/* Notification bell and dropdown drawer */}
+            <div className="relative">
+              <button
+                onClick={() => setIsNotifOpen(!isNotifOpen)}
+                className="p-2 rounded-xl border border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-900/40 text-slate-700 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer relative"
+              >
+                <Bell className="h-4.5 w-4.5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[8px] font-bold text-white ring-2 ring-white dark:ring-[#090a0f]">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {isNotifOpen && (
+                <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-[#12131a] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-4 space-y-3.5 z-50 text-xs max-h-96 overflow-y-auto animate-slide-in">
+                  <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-850 pb-2">
+                    <h4 className="font-extrabold text-slate-900 dark:text-white">Notifications ({visibleNotifications.length})</h4>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={markAllAsRead}
+                        className="text-[9px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="divide-y divide-slate-100 dark:divide-slate-850 space-y-2">
+                    {visibleNotifications.length === 0 ? (
+                      <div className="text-center py-6 text-slate-450 font-bold uppercase tracking-wider text-[10px]">
+                        🎉 You are all caught up!
+                      </div>
+                    ) : (
+                      visibleNotifications.map((notif) => {
+                        const dotColor = notif.priority === 'High' ? 'bg-rose-500' : notif.priority === 'Normal' ? 'bg-blue-500' : 'bg-slate-400';
+                        return (
+                          <div key={notif.id} className={`pt-2 first:pt-0 pb-2 flex flex-col gap-1.5 ${notif.read ? 'opacity-70' : ''}`}>
+                            <div className="flex justify-between items-start">
+                              <span className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+                                <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`}></span>
+                                {notif.title}
+                              </span>
+                              <span className="text-[8px] text-slate-400 uppercase font-bold tracking-wide">
+                                {notif.category}
+                              </span>
+                            </div>
+                            <p className="text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
+                              {notif.message}
+                            </p>
+                            
+                            <div className="flex items-center justify-between text-[9px] text-slate-455">
+                              <span>{new Date(notif.createdAt).toLocaleTimeString()}</span>
+                              <div className="flex gap-2">
+                                {notif.action && (
+                                  <button
+                                    onClick={() => {
+                                      if (notif.action.type === 'SWITCH_TAB') {
+                                        navigate(notif.action.hash);
+                                      } else if (notif.action.type === 'OPEN_MODAL') {
+                                        window.dispatchEvent(new CustomEvent('unicrypt-ai-action', { detail: notif.action }));
+                                      }
+                                      markAsRead(notif.id);
+                                      setIsNotifOpen(false);
+                                    }}
+                                    className="text-blue-600 dark:text-blue-400 font-bold hover:underline cursor-pointer flex items-center gap-0.5"
+                                  >
+                                    <ExternalLink className="h-2 w-2" />
+                                    Action
+                                  </button>
+                                )}
+                                {!notif.read && (
+                                  <button
+                                    onClick={() => markAsRead(notif.id)}
+                                    className="text-emerald-600 dark:text-emerald-450 font-bold hover:underline cursor-pointer flex items-center gap-0.5"
+                                  >
+                                    <Check className="h-2 w-2" />
+                                    Read
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => archiveNotif(notif.id)}
+                                  className="text-slate-500 hover:text-slate-700 font-bold hover:underline cursor-pointer flex items-center gap-0.5"
+                                >
+                                  <Archive className="h-2 w-2" />
+                                  Archive
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 

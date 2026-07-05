@@ -74,6 +74,7 @@ service cloud.firestore {
       );
       allow create: if isAuthenticated();
       allow update, delete: if false;
+    }
     // AI Feedback rules: create authenticated
     match /aiFeedback/{feedbackId} {
       allow read: if isSuperAdmin();

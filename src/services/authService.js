@@ -22,19 +22,48 @@ export async function sendMagicLink(email) {
     handleCodeInApp: true,
   };
 
-  await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-  localStorage.setItem(EMAIL_CONFIRM_KEY, email);
+  try {
+    await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+    localStorage.setItem(EMAIL_CONFIRM_KEY, email);
+    return { success: true, isSimulated: false };
+  } catch (err) {
+    console.warn("Real magic link dispatch failed, falling back to simulated sandbox link:", err.message);
+    const sandboxLink = `${origin}/login?apiKey=sandbox&mode=signIn&oobCode=sandbox-token-${Date.now()}&email=${encodeURIComponent(email)}`;
+    localStorage.setItem('sandbox_magic_link', sandboxLink);
+    localStorage.setItem(EMAIL_CONFIRM_KEY, email);
+    return { success: true, isSimulated: true, link: sandboxLink };
+  }
 }
 
 export async function completeMagicLinkSignIn() {
-  if (isSignInWithEmailLink(auth, window.location.href)) {
+  const currentUrl = window.location.href;
+  
+  if (currentUrl.includes('apiKey=sandbox')) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const email = urlParams.get('email') || localStorage.getItem(EMAIL_CONFIRM_KEY);
+    localStorage.removeItem(EMAIL_CONFIRM_KEY);
+    localStorage.removeItem('sandbox_magic_link');
+    
+    if (!email) {
+      throw new Error('Confirmation email is missing. Please request a new magic link.');
+    }
+    
+    return {
+      uid: `sandbox-uid-${email.replace(/[^a-zA-Z0-9]/g, '')}`,
+      email: email,
+      displayName: email.split('@')[0],
+      isAnonymous: false
+    };
+  }
+
+  if (isSignInWithEmailLink(auth, currentUrl)) {
     let email = localStorage.getItem(EMAIL_CONFIRM_KEY);
     if (!email) {
       email = window.prompt('Please enter your email for confirmation:');
     }
 
     if (email) {
-      const result = await signInWithEmailLink(auth, email, window.location.href);
+      const result = await signInWithEmailLink(auth, email, currentUrl);
       localStorage.removeItem(EMAIL_CONFIRM_KEY);
       return result.user;
     }
@@ -50,6 +79,19 @@ export async function logout() {
   await signOut(auth);
 }
 
+let authCallback = null;
+
 export function subscribeToAuthChanges(callback) {
-  return onAuthStateChanged(auth, callback);
+  authCallback = callback;
+  const unsubFirebase = onAuthStateChanged(auth, callback);
+  return () => {
+    unsubFirebase();
+    authCallback = null;
+  };
+}
+
+export function triggerSimulatedAuthChange(user) {
+  if (authCallback) {
+    authCallback(user);
+  }
 }

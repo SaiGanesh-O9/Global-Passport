@@ -10,7 +10,7 @@ export default function RoleProtectedRoute({ children, allowedRoles }) {
   // Wait until Auth profile and Firestore document hydration are fully ready
   if (loading || !authReady || !documentsReady) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 dark:bg-[#090a0f] flex items-center justify-center transition-theme">
         <Loader2 className="h-8 w-8 text-blue-700 animate-spin" />
       </div>
     );

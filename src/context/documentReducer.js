@@ -14,19 +14,49 @@ export function documentReducer(state, action) {
     case VERIFICATION_ACTION_TYPES.SET_ORGANIZATIONS:
       return {
         ...state,
-        organizations: action.payload.organizations,
+        organizations: action.payload.organizations || [],
+      };
+
+    case VERIFICATION_ACTION_TYPES.SET_ORGANIZATION_PROFILES:
+      return {
+        ...state,
+        organizationProfiles: action.payload.organizationProfiles || [],
+      };
+
+    case VERIFICATION_ACTION_TYPES.SET_VERIFICATION_SERVICES:
+      return {
+        ...state,
+        verificationServices: action.payload.verificationServices || [],
+      };
+
+    case VERIFICATION_ACTION_TYPES.SET_CREDENTIAL_TEMPLATES:
+      return {
+        ...state,
+        credentialTemplates: action.payload.credentialTemplates || [],
+      };
+
+    case VERIFICATION_ACTION_TYPES.SET_CREDENTIALS:
+      return {
+        ...state,
+        credentials: action.payload.credentials || [],
+      };
+
+    case VERIFICATION_ACTION_TYPES.SET_DOCUMENTS:
+      return {
+        ...state,
+        documents: action.payload.documents || [],
       };
 
     case VERIFICATION_ACTION_TYPES.SET_USERS:
       return {
         ...state,
-        users: action.payload.users,
+        users: action.payload.users || [],
       };
 
     case VERIFICATION_ACTION_TYPES.SET_AUDIT_LOGS:
       return {
         ...state,
-        auditLogs: action.payload.auditLogs,
+        auditLogs: action.payload.auditLogs || [],
       };
 
     case VERIFICATION_ACTION_TYPES.SET_PLATFORM_SETTINGS:

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { db, auth, doc, getDoc, setDoc, serverTimestamp } from '../firebase/firebase.js';
+import { db, auth, doc, getDoc, setDoc, serverTimestamp, collection, getDocs } from '../firebase/firebase.js';
 import { signInAnonymously } from 'firebase/auth';
 import {
   subscribeToAuthChanges,
@@ -26,13 +26,72 @@ export function AuthProvider({ children }) {
 
           if (!docSnap.exists()) {
             const isSuperAdminEmail = user.email === import.meta.env.VITE_SUPER_ADMIN_EMAIL;
+            const emailLower = (user.email || '').toLowerCase();
+            const isOrg = emailLower.startsWith('org') || emailLower.includes('org@') || emailLower.endsWith('.edu') || emailLower.endsWith('.org');
+            const role = isSuperAdminEmail ? 'super_admin' : isOrg ? 'organization' : 'student';
+
+            let orgId = null;
+            let orgName = null;
+            let orgRole = null;
+
+            if (role === 'organization') {
+              orgRole = 'Verifier';
+              const emailDomain = emailLower.split('@')[1] || 'localhost';
+              const domainPrefix = emailDomain.split('.')[0] || 'sandbox';
+
+              try {
+                const orgProfilesSnap = await getDocs(collection(db, 'organizationProfiles'));
+                let matchedOrg = null;
+                orgProfilesSnap.forEach(d => {
+                  const data = d.data();
+                  if (data.contactEmail && data.contactEmail.toLowerCase().endsWith(emailDomain)) {
+                    matchedOrg = { id: d.id, ...data };
+                  }
+                });
+
+                if (matchedOrg) {
+                  orgId = matchedOrg.id;
+                  orgName = matchedOrg.name;
+                } else if (import.meta.env.DEV) {
+                  orgId = `org-${domainPrefix}-${Math.random().toString(36).substring(2, 7)}`;
+                  orgName = `${domainPrefix.charAt(0).toUpperCase() + domainPrefix.slice(1)} University`;
+
+                  await setDoc(doc(db, 'organizations', orgId), {
+                    organizationId: orgId,
+                    name: orgName,
+                    type: 'University',
+                    status: 'Active',
+                    verificationStatus: 'Verified',
+                    website: `www.${emailDomain}`,
+                    officialEmailDomain: emailDomain,
+                    createdAt: new Date().toISOString()
+                  });
+
+                  await setDoc(doc(db, 'organizationProfiles', orgId), {
+                    id: orgId,
+                    name: orgName,
+                    description: 'Dynamically generated sandbox organization profile.',
+                    category: 'University',
+                    logo: null,
+                    contactEmail: user.email,
+                    website: `www.${emailDomain}`,
+                    address: '100 Sandbox Campus Way',
+                    status: 'Active',
+                    supportedCredentialTypes: ['Degree Certificate', 'Academic Transcript', 'Passport']
+                  });
+                }
+              } catch (orgErr) {
+                console.error("Dynamic org profile query failed:", orgErr.message);
+              }
+            }
+
             const newProfile = {
               name: user.displayName || user.email?.split('@')[0] || 'Anonymous User',
               email: user.email || `anonymous-${user.uid.substring(0, 5)}@localhost`,
-              role: isSuperAdminEmail ? 'super_admin' : 'student',
-              organizationId: null,
-              organizationName: null,
-              organizationRole: null,
+              role: role,
+              organizationId: orgId,
+              organizationName: orgName,
+              organizationRole: orgRole,
               status: 'active',
               createdAt: serverTimestamp(),
               lastLogin: serverTimestamp(),
@@ -60,7 +119,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (email) => {
-    await sendMagicLink(email);
+    return await sendMagicLink(email);
   };
 
   const logout = async () => {

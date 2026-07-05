@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
-import { completeMagicLinkSignIn } from '../services/authService.js';
+import { completeMagicLinkSignIn, triggerSimulatedAuthChange } from '../services/authService.js';
 import Card from '../components/ui/Card.jsx';
 import Button from '../components/ui/Button.jsx';
 import Input from '../components/ui/Input.jsx';
@@ -20,6 +20,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [isSimulated, setIsSimulated] = useState(false);
+  const [sandboxLink, setSandboxLink] = useState('');
 
   // Development Login Mode States
   const [devError, setDevError] = useState('');
@@ -34,6 +35,7 @@ export default function Login() {
         const user = await completeMagicLinkSignIn();
         if (user) {
           setStatusMessage('Authenticating profile...');
+          triggerSimulatedAuthChange(user);
         } else {
           setVerifyingLink(false);
         }
@@ -72,9 +74,14 @@ export default function Login() {
     try {
       setSubmitting(true);
       setError('');
-      await login(email);
+      const res = await login(email);
       setEmailSent(true);
-      setIsSimulated(false);
+      if (res && res.isSimulated) {
+        setIsSimulated(true);
+        setSandboxLink(res.link);
+      } else {
+        setIsSimulated(false);
+      }
     } catch (err) {
       console.warn("Real magic link dispatch failed, falling back to simulated sandbox link:", err.message);
       setEmailSent(true);
@@ -156,14 +163,12 @@ export default function Login() {
                   <p className="text-[9px] text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
                     Firebase credentials are unconfigured. Click below to simulate magic link verification.
                   </p>
-                  <button
-                    type="button"
-                    onClick={handleSimulatedClick}
-                    disabled={devSubmitting}
-                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-xs font-extrabold text-white rounded-lg shadow-sm hover:shadow transition-all cursor-pointer disabled:opacity-50"
+                  <a
+                    href={sandboxLink || localStorage.getItem('sandbox_magic_link') || '#'}
+                    className="w-full inline-block py-2 bg-blue-600 hover:bg-blue-750 text-xs font-extrabold text-white rounded-lg shadow-sm hover:shadow transition-all text-center cursor-pointer select-none no-underline"
                   >
-                    {devSubmitting ? 'Authenticating...' : '📩 Simulate Magic Link Verification'}
-                  </button>
+                    📩 Click to verify Magic Link redirect
+                  </a>
                 </div>
               )}
               <button

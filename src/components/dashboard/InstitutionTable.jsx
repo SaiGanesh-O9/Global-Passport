@@ -1,11 +1,12 @@
-import React, { useState, useMemo } from 'react';
-import { Eye, ChevronDown, ChevronUp, Loader2, Sparkles } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Eye, ChevronDown, ChevronUp, Loader2, Sparkles, FileText, CheckCircle2 } from 'lucide-react';
 import { useDocumentActions } from '../../hooks/useDocumentActions.js';
 import { useDocuments } from '../../hooks/useDocuments.js';
 import { db, collection, addDoc } from '../../firebase/firebase.js';
 import Button from '../ui/Button.jsx';
 import Card from '../ui/Card.jsx';
 import StatusBadge from '../ui/StatusBadge.jsx';
+import UniversalDocumentViewer from './UniversalDocumentViewer.jsx';
 
 
 
@@ -20,6 +21,7 @@ export default function InstitutionTable({ activeTab }) {
   const [feedbackStatus, setFeedbackStatus] = useState({});
   const [selectedIds, setSelectedIds] = useState({});
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [selectedViewerDoc, setSelectedViewerDoc] = useState(null);
 
   useEffect(() => {
     setSelectedIds({});
@@ -424,8 +426,49 @@ export default function InstitutionTable({ activeTab }) {
                             </div>
                           </div>
 
-                          {/* File lists */}
-                          {request.files && request.files.length > 0 && (
+                          {/* Required Credentials Checklist progress */}
+                          <div className="mt-4 space-y-2">
+                            <p className="text-[10px] font-bold text-slate-550 dark:text-slate-400 uppercase tracking-wider">Required Credentials checklist status</p>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              {request.checklist ? request.checklist.map((item, idx) => {
+                                const docRef = (request.documentReferences || []).find(d => d.type === item.type);
+                                return (
+                                  <div key={idx} className="flex items-center justify-between p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/40 rounded-xl">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-extrabold">
+                                        {item.status === 'Approved' ? '✔' : item.status === 'Pending' ? '⏳' : '⬜'}
+                                      </span>
+                                      <span className="text-xs font-bold text-slate-900 dark:text-white">
+                                        {item.type} <span className="text-[9px] text-slate-450">({item.required ? 'Required' : 'Optional'})</span>
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded ${
+                                        item.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-700' : 'bg-amber-500/10 text-amber-700'
+                                      }`}>
+                                        {item.status || 'Pending'}
+                                      </span>
+                                      {docRef?.fileUrl && (
+                                        <button
+                                          onClick={() => setSelectedViewerDoc(docRef)}
+                                          className="text-blue-600 dark:text-blue-400 text-[10px] font-bold hover:underline cursor-pointer"
+                                        >
+                                          Preview
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              }) : (
+                                <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/40 rounded-xl sm:col-span-2">
+                                  <p className="text-xs text-slate-500">Standard verification payload format</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* File lists (backward compatibility fallback) */}
+                          {(!request.checklist && request.files && request.files.length > 0) && (
                             <div className="mt-4">
                               <p className="text-[10px] font-bold text-slate-550 dark:text-slate-400 uppercase tracking-wider">Submitted Documents for Review</p>
                               <ul className="mt-2 divide-y divide-slate-200 dark:divide-slate-800/40 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/60 rounded-xl overflow-hidden">
@@ -435,14 +478,12 @@ export default function InstitutionTable({ activeTab }) {
                                     <li key={fIdx} className="flex justify-between items-center px-4 py-3 text-xs">
                                       <span className="text-slate-700 dark:text-slate-300 font-bold">{file.fileName}{file.fileSize ? ` (${Math.round(file.fileSize / 1024)} KB)` : ''}</span>
                                       {fileUrl ? (
-                                        <a
-                                          href={fileUrl}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="text-blue-650 dark:text-blue-400 font-bold hover:underline"
+                                        <button
+                                          onClick={() => setSelectedViewerDoc({ fileUrl, fileName: file.fileName })}
+                                          className="text-blue-650 dark:text-blue-400 font-bold hover:underline cursor-pointer"
                                         >
-                                          View & Review File
-                                        </a>
+                                          Preview File
+                                        </button>
                                       ) : (
                                         <span className="text-amber-600 dark:text-amber-450 font-bold uppercase tracking-wider text-[10px] bg-amber-500/10 px-2 py-0.5 rounded-lg">
                                           Demo Mode – File not uploaded
@@ -596,6 +637,12 @@ export default function InstitutionTable({ activeTab }) {
           </Button>
         </div>
       </div>
+      {selectedViewerDoc && (
+        <UniversalDocumentViewer
+          document={selectedViewerDoc}
+          onClose={() => setSelectedViewerDoc(null)}
+        />
+      )}
     </Card>
   );
 }

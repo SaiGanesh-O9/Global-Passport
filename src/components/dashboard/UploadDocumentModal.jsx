@@ -1,62 +1,54 @@
-import { useState, useEffect } from 'react';
-import { uploadToCloudinary } from '@/utils/cloudinaryUpload.js';
-import { useDocumentActions } from '../../hooks/useDocumentActions.js';
+import React, { useState, useEffect, useMemo } from 'react';
+import { db, collection, addDoc, doc, setDoc } from '../../firebase/firebase.js';
 import { useDocuments } from '../../hooks/useDocuments.js';
-import { createDocumentId } from '../../context/documentUtils.js';
+import { useDocumentActions } from '../../hooks/useDocumentActions.js';
+import { useAuth } from '../../hooks/useAuth.js';
+import { uploadToCloudinary } from '../../utils/cloudinaryUpload.js';
+import { createDocumentId, createTimelineEntry, VERIFICATION_STATUS, formatRequestDate } from '../../context/documentUtils.js';
 import Button from '../ui/Button.jsx';
 import Card from '../ui/Card.jsx';
 import Input from '../ui/Input.jsx';
 import Select from '../ui/Select.jsx';
-import StatusBadge from '../ui/StatusBadge.jsx';
+import Textarea from '../ui/Textarea.jsx';
 import {
-  FileCheck2,
-  Upload,
   X,
   Building2,
-  Globe,
-  FileText,
   CheckCircle2,
-  ArrowRight,
+  Globe,
+  Upload,
   ArrowLeft,
+  ArrowRight,
   Loader2,
+  AlertTriangle,
+  FileText,
+  FileCheck,
+  ClipboardList
 } from 'lucide-react';
-
-const credentialTypeOptions = [
-  'Passport',
-  'Academic Essay',
-  'Degree',
-  'Transcript',
-  'Medical License',
-  'Employment Certificate',
-  'Government Certificate',
-  'Professional Certification',
-];
-
-const CREDENTIAL_TYPE_MAP = {
-  'Passport': 'Government',
-  'Academic Essay': 'University',
-  'Degree': 'University',
-  'Transcript': 'University',
-  'Medical License': 'Hospital',
-  'Employment Certificate': 'Employer',
-  'Government Certificate': 'Government',
-  'Professional Certification': 'Certification Authority',
-};
 
 const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg'];
 
-export default function UploadDocumentModal({ isOpen, onClose, targetRequest }) {
+export default function UploadDocumentModal({ isOpen, onClose, targetRequest, initialSelectedOrg }) {
+  const { currentUser, userProfile } = useAuth();
+  const {
+    organizationProfiles,
+    verificationServices,
+    credentialTemplates,
+    credentials,
+    documents
+  } = useDocuments();
+
   const { requestVerification } = useDocumentActions();
 
-  // Wizard state: 1: Type, 2: Organization, 3: Files, 4: Review, 5: Success
+  // Wizard state: 1: Select Organization, 2: Select Service, 3: Upload Files, 4: Review, 5: Success
   const [step, setStep] = useState(1);
-  const { organizations } = useDocuments();
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Form states
-  const [credentialType, setCredentialType] = useState(credentialTypeOptions[0]);
+  
+  // Selections
   const [selectedOrg, setSelectedOrg] = useState(null);
-  const [files, setFiles] = useState([]);
+  const [selectedService, setSelectedService] = useState(null);
+  
+  // Files dictionary keyed by credential type: { [type]: File }
+  const [files, setFiles] = useState({});
   const [purpose, setPurpose] = useState('');
   const [consentApproved, setConsentApproved] = useState(false);
 
@@ -66,166 +58,244 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest }) 
   const [error, setError] = useState('');
   const [hasStorageError, setHasStorageError] = useState(false);
 
+  // Initialize and handle props updates
   useEffect(() => {
     if (isOpen) {
-      if (targetRequest) {
-        setCredentialType(targetRequest.credentialType || credentialTypeOptions[0]);
-        setSelectedOrg(targetRequest.organization || null);
-        setStep(3); // Skip directly to file upload step
-      } else {
-        setStep(1);
-        setCredentialType(credentialTypeOptions[0]);
-        setSelectedOrg(null);
-      }
-      setFiles([]);
       setError('');
+      setFiles({});
       setPurpose('');
-      setSubmitProgress('');
-      setSubmitting(false);
       setConsentApproved(false);
+      setSubmitting(false);
+
+      if (targetRequest) {
+        // Find corresponding organization profile and service
+        const orgProf = organizationProfiles.find(o => o.id === targetRequest.organizationId) || null;
+        const service = verificationServices.find(s => s.id === targetRequest.serviceId) || null;
+        setSelectedOrg(orgProf);
+        setSelectedService(service);
+        setStep(3); // Skip directly to file upload stage
+      } else if (initialSelectedOrg) {
+        setSelectedOrg(initialSelectedOrg);
+        const firstService = verificationServices.find(s => s.organizationId === initialSelectedOrg.id) || null;
+        setSelectedService(firstService);
+        setStep(2); // Go to service selection
+      } else {
+        setSelectedOrg(null);
+        setSelectedService(null);
+        setStep(1);
+      }
     }
-  }, [isOpen, targetRequest]);
+  }, [isOpen, targetRequest, initialSelectedOrg, organizationProfiles, verificationServices]);
 
+  // Derived filter calculations
+  const filteredOrgs = useMemo(() => {
+    return (organizationProfiles || []).filter((org) => {
+      if (org.status !== 'Active') return false;
+      const q = searchQuery.toLowerCase();
+      return (org.name || '').toLowerCase().includes(q) || (org.category || '').toLowerCase().includes(q);
+    });
+  }, [organizationProfiles, searchQuery]);
 
+  const activeServices = useMemo(() => {
+    if (!selectedOrg) return [];
+    return (verificationServices || []).filter(s => s.organizationId === selectedOrg.id && s.status === 'Published');
+  }, [verificationServices, selectedOrg]);
 
+  const selectedTemplate = useMemo(() => {
+    if (!selectedService) return null;
+    return credentialTemplates.find(t => t.serviceId === selectedService.id) || null;
+  }, [selectedService, credentialTemplates]);
 
+  // Build Checklist and Reuse Logic
+  const checklist = useMemo(() => {
+    if (!selectedTemplate) return [];
+    const requirements = [
+      ...(selectedTemplate.requiredCredentials || []).map(c => ({ ...c, required: true })),
+      ...(selectedTemplate.optionalCredentials || []).map(c => ({ ...c, required: false }))
+    ];
 
-  // Filter organizations matching mapped credential type
-  const targetOrgType = CREDENTIAL_TYPE_MAP[credentialType];
-  const filteredOrgs = organizations.filter((org) => {
-    const isActive = org.status === 'Active';
-    const isVerified = org.verificationStatus === 'Verified';
-    const matchesType = org.type === targetOrgType;
-    const matchesSearch =
-      org.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      org.type.toLowerCase().includes(searchQuery.toLowerCase());
-    return isActive && isVerified && matchesType && matchesSearch;
-  });
+    return requirements.map(req => {
+      // Find if student has a verified, unexpired credential of this type in their vault
+      const verifiedCred = (credentials || []).find(c => 
+        c.type === req.type && 
+        c.status === 'Approved' && 
+        !c.isExpired
+      );
+      return {
+        ...req,
+        isVerified: !!verifiedCred,
+        verifiedCred
+      };
+    });
+  }, [selectedTemplate, credentials]);
 
-  const handleFileValidation = (file) => {
+  // Progress metrics
+  const completedCount = useMemo(() => {
+    return checklist.filter(item => item.isVerified || files[item.type]).length;
+  }, [checklist, files]);
+
+  const totalCount = checklist.length;
+  const progressPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+  // File dropzone handlers
+  const handleFileValidation = (file, constraint) => {
     const fileName = file.name.toLowerCase();
-    const isValid = ALLOWED_EXTENSIONS.some((ext) => fileName.endsWith(ext));
-    if (!isValid) {
-      setError(`Invalid file type: ${file.name}. Only PDF, PNG, JPG, and JPEG are allowed.`);
+    const isValidExt = ALLOWED_EXTENSIONS.some((ext) => fileName.endsWith(ext));
+    if (!isValidExt) {
+      setError(`Invalid file type for ${file.name}. Only PDF, PNG, JPG, and JPEG are allowed.`);
+      return false;
+    }
+    const maxSize = constraint?.maxFileSize || 5242880;
+    if (file.size > maxSize) {
+      setError(`File size too large: ${file.name}. Maximum size allowed is ${Math.round(maxSize / 1024 / 1024)}MB.`);
       return false;
     }
     return true;
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = (type, e, constraint) => {
     setError('');
-    const selected = Array.from(e.target.files || []);
-    const validFiles = selected.filter(handleFileValidation);
-    setFiles((prev) => [...prev, ...validFiles]);
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setError('');
-    const dropped = Array.from(e.dataTransfer.files || []);
-    const validFiles = dropped.filter(handleFileValidation);
-    setFiles((prev) => [...prev, ...validFiles]);
-  };
-
-  const handleRemoveFile = (index) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleReset = () => {
-    setStep(1);
-    setCredentialType(credentialTypeOptions[0]);
-    setSelectedOrg(null);
-    setFiles([]);
-    setSearchQuery('');
-    setPurpose('');
-    setError('');
-    setSubmitProgress('');
-    setHasStorageError(false);
+    const file = e.target.files?.[0];
+    if (file && handleFileValidation(file, constraint)) {
+      setFiles(prev => ({ ...prev, [type]: file }));
+    }
   };
 
   const handleClose = () => {
-    handleReset();
+    setStep(1);
+    setSelectedOrg(null);
+    setSelectedService(null);
+    setFiles({});
     onClose();
   };
 
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isOpen) {
-        handleClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
-
+  // Submit request handler
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (files.length === 0) {
-      setError('Please upload at least one document.');
+    setError('');
+
+    // Ensure all missing required credentials have an uploaded file
+    const missingRequired = checklist.filter(item => item.required && !item.isVerified && !files[item.type]);
+    if (missingRequired.length > 0) {
+      setError(`Please upload a document for: ${missingRequired.map(i => i.type).join(', ')}`);
       return;
     }
 
     try {
       setSubmitting(true);
-      setSubmitProgress('Uploading documents to Cloudinary...');
-      setError('');
+      setSubmitProgress('Uploading new documents to cloud storage...');
 
       const isResolving = !!targetRequest;
       const newRequestId = isResolving ? targetRequest.id : createDocumentId();
-      const fileMetadata = [];
-      let uploadMode = 'cloud';
-      let storageStatus = 'enabled';
+      const documentReferences = [];
       let storageErrorOccurred = false;
 
-      // Upload each file to Cloudinary
-      for (const file of files) {
+      // Process and upload each new file
+      for (const [credType, file] of Object.entries(files)) {
+        if (!file) continue;
+
+        let fileUrl = '';
+        let uploadMode = 'cloud';
+        let storageStatus = 'enabled';
+
         try {
           const result = await uploadToCloudinary(file);
-          console.log(result.url);
-          fileMetadata.push({
-            fileName: file.name,
-            fileUrl: result.url,
-            publicId: result.public_id,
-          });
+          fileUrl = result.url;
         } catch (storageErr) {
           if (import.meta.env.DEV) {
-            console.warn('Cloudinary upload failed, falling back to local mode:', storageErr);
-            storageErrorOccurred = true;
+            console.warn('Cloudinary upload failed, using local Blob fallback:', storageErr.message);
+            fileUrl = URL.createObjectURL(file);
             uploadMode = 'local';
             storageStatus = 'disabled';
+            storageErrorOccurred = true;
           } else {
             throw storageErr;
           }
         }
+
+        // 1. Create a Credential record in Firestore if not already existing
+        const credId = `cred-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+        const credData = {
+          id: credId,
+          type: credType,
+          ownerEmail: userProfile?.email || currentUser?.email || 'student@localhost',
+          status: 'Pending',
+          verifiedAt: '',
+          verifiedBy: '',
+          expiresAt: '',
+          isReusable: false,
+          isExpired: false
+        };
+        await setDoc(doc(db, 'credentials', credId), credData);
+
+        // 2. Create a Document Version record
+        const docId = `doc-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+        const docData = {
+          id: docId,
+          credentialId: credId,
+          fileName: file.name,
+          fileUrl,
+          version: 1,
+          uploadedAt: new Date().toLocaleDateString(),
+          uploadMode,
+          storageStatus
+        };
+        await setDoc(doc(db, 'documents', docId), docData);
+
+        documentReferences.push({
+          credentialId: credId,
+          documentId: docId,
+          type: credType,
+          fileName: file.name,
+          fileUrl
+        });
       }
 
-      setSubmitProgress(isResolving ? 'Resolving requested document...' : 'Submitting verification request...');
-      await requestVerification({
-        id: newRequestId,
-        credentialType: isResolving ? targetRequest.credentialType : credentialType,
-        organization: isResolving ? targetRequest.organization : {
-          id: selectedOrg.id,
-          name: selectedOrg.name,
-          type: selectedOrg.type,
-        },
-        purpose: isResolving ? targetRequest.purpose : (purpose.trim() || `${credentialType} Verification`),
-        fileName: files[0].name,
-        files: fileMetadata,
-        uploadMode,
-        storageStatus,
+      // Re-link already verified documents from vault
+      checklist.forEach(item => {
+        if (item.isVerified && item.verifiedCred) {
+          // Find document linked to this credential
+          const verifiedDoc = documents.find(d => d.credentialId === item.verifiedCred.id);
+          documentReferences.push({
+            credentialId: item.verifiedCred.id,
+            documentId: verifiedDoc?.id || 'doc-link',
+            type: item.type,
+            fileName: verifiedDoc?.fileName || 'Verified Document',
+            fileUrl: verifiedDoc?.fileUrl || ''
+          });
+        }
       });
 
-      setHasStorageError(storageErrorOccurred);
+      setSubmitProgress('Submitting verification request...');
 
-      // Navigate to routing visualization success step
+      // Save verification request details
+      const requestPayload = {
+        id: newRequestId,
+        organizationId: selectedOrg.id,
+        organizationName: selectedOrg.name,
+        serviceId: selectedService.id,
+        serviceName: selectedService.name,
+        ownerEmail: userProfile?.email || currentUser?.email || 'student@localhost',
+        status: VERIFICATION_STATUS.PENDING,
+        progress: progressPercentage,
+        requestDate: formatRequestDate(new Date()),
+        timeline: [
+          createTimelineEntry('Verification Request Created', VERIFICATION_STATUS.PENDING, new Date())
+        ],
+        checklist: checklist.map(item => ({
+          type: item.type,
+          required: item.required,
+          status: item.isVerified ? 'Approved' : 'Pending'
+        })),
+        documentReferences
+      };
+
+      await setDoc(doc(db, 'verificationRequests', newRequestId), requestPayload);
+      setHasStorageError(storageErrorOccurred);
       setStep(5);
     } catch (err) {
       console.error(err);
-      setError('Failed to submit request: ' + err.message);
+      setError('Submission failed: ' + err.message);
     } finally {
       setSubmitting(false);
     }
@@ -235,46 +305,43 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest }) 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 dark:bg-black/80 backdrop-blur-sm px-5 py-6">
-      <Card className="w-full max-w-lg p-6 sm:p-8 bg-white dark:bg-[#12131a] shadow-2xl relative border border-slate-200 dark:border-slate-800/40 max-h-[95vh] overflow-y-auto">
+      <Card className="w-full max-w-lg p-6 sm:p-8 bg-white dark:bg-[#12131a] shadow-2xl relative border border-slate-205 dark:border-slate-800/40 max-h-[95vh] overflow-y-auto">
         
-        {/* Close Modal Trigger */}
+        {/* Close Button */}
         <button
           onClick={handleClose}
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-105 dark:hover:bg-slate-800/40 cursor-pointer transition-colors duration-150"
-          aria-label="Close modal"
+          className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/40 cursor-pointer transition-colors duration-150"
         >
           <X className="h-4.5 w-4.5" />
         </button>
 
-        {/* Step Indicator Headers */}
+        {/* Step headers */}
         {step < 5 && (
           <div className="border-b border-slate-200/80 dark:border-slate-800/60 pb-4">
             <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               <span>Step {step} of 4</span>
-              <span>{submitting ? 'Processing' : 'Request Verification'}</span>
+              <span>{submitting ? 'Processing' : 'Verification Request Wizard'}</span>
             </div>
-            {/* Step titles */}
-            <h2 className="text-lg font-extrabold text-slate-950 dark:text-white mt-1.5 uppercase tracking-wide">
-              {step === 1 && 'Choose Credential'}
-              {step === 2 && 'Select Organization'}
-              {step === 3 && 'Upload Document Files'}
+            <h2 className="text-sm font-bold text-slate-950 dark:text-white mt-1.5 uppercase tracking-wide">
+              {step === 1 && 'Select Organization'}
+              {step === 2 && 'Select Verification Service'}
+              {step === 3 && 'Submit Credentials Checklist'}
               {step === 4 && 'Review & Submit'}
             </h2>
-            <div className="w-full bg-slate-100 dark:bg-slate-900 h-1.5 rounded-full mt-3 overflow-hidden border border-slate-200/30 dark:border-slate-800/20">
+            <div className="w-full bg-slate-100 dark:bg-slate-900 h-1 rounded-full mt-3 overflow-hidden border border-slate-200/20 dark:border-slate-800/20">
               <div
-                className="bg-blue-650 h-full rounded-full transition-all duration-300"
+                className="bg-blue-600 h-full rounded-full transition-all duration-300"
                 style={{ width: `${(step / 4) * 100}%` }}
               />
             </div>
           </div>
         )}
 
-        {/* Modal content body */}
         <div className="mt-5">
           {submitting ? (
             <div className="flex flex-col items-center justify-center py-12 space-y-4">
               <Loader2 className="h-10 w-10 text-blue-600 dark:text-blue-400 animate-spin" />
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-205 text-center uppercase tracking-wider">{submitProgress}</p>
+              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 text-center uppercase tracking-wider">{submitProgress}</p>
             </div>
           ) : (
             <>
@@ -287,53 +354,9 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest }) 
                 </div>
               )}
 
-              {/* Step 1: Credential Type Select */}
+              {/* Step 1: Select Organization */}
               {step === 1 && (
-                <div className="space-y-5">
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
-                    Specify the type of credential you wish to verify. This filters authorized organizations automatically.
-                  </p>
-                  
-                  <Select
-                    id="credentialType"
-                    label="Credential Type"
-                    value={credentialType}
-                    onChange={(e) => setCredentialType(e.target.value)}
-                  >
-                    {credentialTypeOptions.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </Select>
-
-                  <Input
-                    id="purpose"
-                    type="text"
-                    label="Verification Purpose (Optional)"
-                    placeholder="e.g. Higher Education, Employment Check"
-                    value={purpose}
-                    onChange={(e) => setPurpose(e.target.value)}
-                  />
-
-                  <div className="flex justify-end pt-4 border-t border-slate-200/50 dark:border-slate-800/40 gap-2">
-                    <Button onClick={handleClose} variant="secondary">
-                      Cancel
-                    </Button>
-                    <Button icon={ArrowRight} onClick={() => setStep(2)}>
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 2: Select Organization */}
-              {step === 2 && (
-                <div className="space-y-5">
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
-                    Search and select a verified issuing organization matching type: <strong className="text-slate-950 dark:text-white font-extrabold">{targetOrgType}</strong>.
-                  </p>
-                  
+                <div className="space-y-4">
                   <Input
                     type="text"
                     placeholder="Search organization by name..."
@@ -348,11 +371,11 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest }) 
                         return (
                           <div
                             key={org.id}
-                            onClick={() => setSelectedOrg(org)}
+                            onClick={() => { setSelectedOrg(org); setSelectedService(null); }}
                             className={`p-3 rounded-xl border transition-all duration-150 cursor-pointer flex items-center justify-between ${
                               isSelected
                                 ? 'border-blue-600 bg-blue-500/5 dark:bg-blue-500/10'
-                                : 'border-slate-200 dark:border-slate-800/60 bg-white dark:bg-slate-900/40 hover:border-slate-300 dark:hover:border-slate-700'
+                                : 'border-slate-200 dark:border-slate-800/60 bg-white dark:bg-slate-900/40 hover:border-slate-300 dark:hover:border-slate-705'
                             }`}
                           >
                             <div className="flex items-center gap-3">
@@ -361,18 +384,10 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest }) 
                               </span>
                               <div>
                                 <p className="text-xs font-bold text-slate-950 dark:text-white">{org.name}</p>
-                                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-slate-500 dark:text-slate-450 mt-0.5 font-semibold">
-                                  <span>{org.type}</span>
-                                  {org.website && (
-                                    <span className="flex items-center gap-0.5">
-                                      <Globe className="h-3 w-3 text-slate-400" />
-                                      {org.website}
-                                    </span>
-                                  )}
-                                </div>
+                                <p className="text-[10px] text-slate-500 font-semibold">{org.category}</p>
                               </div>
                             </div>
-                            <span className="rounded-lg bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-500/20 flex items-center gap-0.5 whitespace-nowrap">
+                            <span className="rounded-lg bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold text-emerald-700 dark:text-emerald-450 ring-1 ring-emerald-500/20 flex items-center gap-0.5">
                               <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
                               Verified
                             </span>
@@ -386,125 +401,177 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest }) 
                     )}
                   </div>
 
-                  <div className="flex justify-between pt-4 border-t border-slate-200/50 dark:border-slate-800/40">
-                    <Button icon={ArrowLeft} onClick={() => setStep(1)} variant="secondary">
-                      Back
+                  <div className="flex justify-end pt-4 border-t border-slate-200/50 dark:border-slate-800/40">
+                    <Button disabled={!selectedOrg} icon={ArrowRight} onClick={() => setStep(2)}>
+                      Next
                     </Button>
-                    <div className="flex gap-2">
-                      <Button onClick={handleClose} variant="secondary">
-                        Cancel
-                      </Button>
-                      <Button disabled={!selectedOrg} icon={ArrowRight} onClick={() => setStep(3)}>
-                        Next
-                      </Button>
-                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Step 3: Upload Files */}
-              {step === 3 && (
-                <div className="space-y-5">
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
-                    Upload document copies for review. Supported formats: <strong className="text-slate-950 dark:text-white font-bold">PDF, PNG, JPG, JPEG</strong>.
+              {/* Step 2: Select Service */}
+              {step === 2 && (
+                <div className="space-y-4">
+                  <p className="text-xs text-slate-500 dark:text-slate-450 font-semibold leading-relaxed">
+                    Select a verification service offered by <strong>{selectedOrg?.name}</strong>.
                   </p>
 
-                  <div
-                    onDragOver={handleDragOver}
-                    onDrop={handleDrop}
-                    className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center hover:border-blue-600 dark:hover:border-blue-500 transition-colors duration-150 cursor-pointer bg-slate-50/50 dark:bg-slate-900/10 flex flex-col items-center justify-center relative"
-                  >
-                    <input
-                      type="file"
-                      multiple
-                      accept=".pdf,.png,.jpg,.jpeg"
-                      onChange={handleFileChange}
-                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                    />
-                    <Upload className="h-8 w-8 text-slate-400 dark:text-slate-500 mb-2.5" />
-                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                      Drag & drop files here, or <span className="text-blue-600 dark:text-blue-450 hover:underline">browse</span>
-                    </p>
-                    <p className="text-[10px] text-slate-450 dark:text-slate-500 mt-1 font-semibold">Maximum file size: 10MB per file</p>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {activeServices.length > 0 ? (
+                      activeServices.map(service => {
+                        const isSelected = selectedService?.id === service.id;
+                        return (
+                          <div
+                            key={service.id}
+                            onClick={() => setSelectedService(service)}
+                            className={`p-4 rounded-xl border transition-all duration-150 cursor-pointer flex flex-col gap-1.5 ${
+                              isSelected
+                                ? 'border-blue-600 bg-blue-500/5 dark:bg-blue-500/10'
+                                : 'border-slate-200 dark:border-slate-800/60 bg-white dark:bg-slate-900/40 hover:border-slate-300 dark:hover:border-slate-705'
+                            }`}
+                          >
+                            <h4 className="text-xs font-bold text-slate-950 dark:text-white">{service.name}</h4>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
+                              {service.description || 'No description provided.'}
+                            </p>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-xs text-slate-450 font-bold py-8 text-center">
+                        No verification services published for this organization.
+                      </p>
+                    )}
                   </div>
 
-                  {files.length > 0 && (
-                    <div className="space-y-2 max-h-40 overflow-y-auto border border-slate-200/60 dark:border-slate-850 rounded-xl p-2.5 bg-slate-50/50 dark:bg-slate-900/20">
-                      <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-450">Files to Upload ({files.length})</h4>
-                      {files.map((file, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 text-xs">
-                          <div className="flex items-center gap-2 truncate">
-                            <FileText className="h-4 w-4 text-slate-400 shrink-0" />
-                            <span className="font-bold text-slate-805 dark:text-slate-200 truncate">{file.name}</span>
-                            <span className="text-slate-400 font-semibold">({Math.round(file.size / 1024)} KB)</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveFile(idx)}
-                            className="text-slate-400 hover:text-rose-600 transition-colors duration-150 cursor-pointer"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
+                  <div className="flex justify-between pt-4 border-t border-slate-200/50 dark:border-slate-800/40">
+                    <Button icon={ArrowLeft} onClick={() => setStep(1)} variant="secondary">
+                      Back
+                    </Button>
+                    <Button disabled={!selectedService} icon={ArrowRight} onClick={() => setStep(3)}>
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Checklist Upload */}
+              {step === 3 && (
+                <div className="space-y-4">
+                  {selectedTemplate?.instructions && (
+                    <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800/40 rounded-xl p-3.5 text-xs text-slate-655 dark:text-slate-350 italic">
+                      Instructions: "{selectedTemplate.instructions}"
                     </div>
                   )}
+
+                  {/* Progress Indicator */}
+                  <div className="space-y-1.5 border border-slate-200/50 dark:border-slate-800/40 rounded-xl p-3.5 bg-slate-55/50 dark:bg-slate-900/20">
+                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 dark:text-slate-450 uppercase tracking-wider">
+                      <span>Requirement Checklist</span>
+                      <span className="text-blue-600 dark:text-blue-400">{progressPercentage}% Complete</span>
+                    </div>
+                    <div className="w-full bg-slate-100 dark:bg-slate-900 h-1.5 rounded-full mt-1.5 overflow-hidden">
+                      <div className="bg-blue-600 h-full rounded-full transition-all duration-300" style={{ width: `${progressPercentage}%` }} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3.5 max-h-60 overflow-y-auto">
+                    {checklist.map((item, idx) => {
+                      const hasUploadedFile = !!files[item.type];
+                      return (
+                        <div key={idx} className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/50 rounded-xl flex flex-col gap-3">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="text-xs font-bold text-slate-950 dark:text-white block">{item.type}</span>
+                              <span className="text-[10px] text-slate-500 mt-0.5 font-bold uppercase tracking-wider block">
+                                {item.required ? 'Upload Required' : 'Optional Upload'}
+                              </span>
+                            </div>
+                            {item.isVerified ? (
+                              <span className="text-[9px] font-extrabold uppercase bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-2.5 py-1 rounded-lg border border-emerald-500/15 flex items-center gap-1">
+                                <FileCheck className="h-3.5 w-3.5" />
+                                Reusing Verified
+                              </span>
+                            ) : hasUploadedFile ? (
+                              <span className="text-[9px] font-extrabold uppercase bg-blue-500/10 text-blue-700 dark:text-blue-400 px-2.5 py-1 rounded-lg border border-blue-500/15 flex items-center gap-1">
+                                <FileText className="h-3.5 w-3.5" />
+                                File Selected
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-extrabold uppercase bg-slate-100 dark:bg-slate-800 text-slate-500 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800">
+                                Action Required
+                              </span>
+                            )}
+                          </div>
+
+                          {!item.isVerified && (
+                            <div className="relative">
+                              <label className="flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-800 rounded-xl p-3.5 text-center cursor-pointer transition-colors duration-150">
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  onChange={(e) => handleFileChange(item.type, e, item)}
+                                  accept={item.acceptedFileTypes?.join(',')}
+                                />
+                                <div className="space-y-1 text-slate-550 dark:text-slate-400">
+                                  <Upload className="h-5 w-5 mx-auto text-slate-450" />
+                                  <span className="text-[10px] font-bold uppercase tracking-wider block">
+                                    {files[item.type] ? files[item.type].name : 'Click to Upload attachment'}
+                                  </span>
+                                  <span className="text-[9px] text-slate-400 block font-semibold">
+                                    {item.acceptedFileTypes?.join(', ')} (Max 5MB)
+                                  </span>
+                                </div>
+                              </label>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
 
                   <div className="flex justify-between pt-4 border-t border-slate-200/50 dark:border-slate-800/40">
                     <Button icon={ArrowLeft} onClick={() => setStep(2)} variant="secondary">
                       Back
                     </Button>
-                    <div className="flex gap-2">
-                      <Button onClick={handleClose} variant="secondary">
-                        Cancel
-                      </Button>
-                      <Button disabled={files.length === 0} icon={ArrowRight} onClick={() => setStep(4)}>
-                        Next
-                      </Button>
-                    </div>
+                    <Button icon={ArrowRight} onClick={() => setStep(4)}>
+                      Next
+                    </Button>
                   </div>
                 </div>
               )}
 
               {/* Step 4: Review & Submit */}
               {step === 4 && (
-                <div className="space-y-5">
+                <div className="space-y-4">
                   <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
                     Verify all submission parameters before routing the request.
                   </p>
 
-                  <div className="border border-slate-205 dark:border-slate-800/60 rounded-xl p-4 bg-slate-50/50 dark:bg-slate-900/30 text-xs space-y-3.5">
-                    <div className="grid grid-cols-[1.2fr_2fr] gap-2 border-b border-slate-200 dark:border-slate-800/50 pb-2">
-                      <span className="text-slate-500 dark:text-slate-450 font-bold uppercase tracking-wider text-[9px]">Credential Type</span>
-                      <span className="text-slate-950 dark:text-white font-extrabold">{credentialType}</span>
-                    </div>
+                  <div className="border border-slate-200 dark:border-slate-800/60 rounded-xl p-4 bg-slate-50/50 dark:bg-slate-900/30 text-xs space-y-3.5">
                     <div className="grid grid-cols-[1.2fr_2fr] gap-2 border-b border-slate-200 dark:border-slate-800/50 pb-2">
                       <span className="text-slate-500 dark:text-slate-450 font-bold uppercase tracking-wider text-[9px]">Organization</span>
                       <span className="text-slate-950 dark:text-white font-extrabold">{selectedOrg?.name}</span>
                     </div>
                     <div className="grid grid-cols-[1.2fr_2fr] gap-2 border-b border-slate-200 dark:border-slate-800/50 pb-2">
-                      <span className="text-slate-500 dark:text-slate-450 font-bold uppercase tracking-wider text-[9px]">Files ({files.length})</span>
-                      <div className="truncate text-slate-800 dark:text-slate-300 font-bold">
-                        {files.map(f => f.name).join(', ')}
-                      </div>
+                      <span className="text-slate-500 dark:text-slate-450 font-bold uppercase tracking-wider text-[9px]">Service Request</span>
+                      <span className="text-slate-950 dark:text-white font-extrabold">{selectedService?.name}</span>
                     </div>
-                    {purpose && (
-                      <div className="grid grid-cols-[1.2fr_2fr] gap-2 border-b border-slate-200 dark:border-slate-800/50 pb-2">
-                        <span className="text-slate-500 dark:text-slate-450 font-bold uppercase tracking-wider text-[9px]">Purpose</span>
-                        <span className="text-slate-800 dark:text-slate-350 font-semibold">{purpose}</span>
-                      </div>
-                    )}
-                    <div className="space-y-1">
-                      <span className="text-slate-500 dark:text-slate-450 text-[9px] font-bold uppercase tracking-wider block">Timeline Preview</span>
-                      <div className="flex gap-2 items-center text-[10px] text-slate-500 dark:text-slate-450 font-semibold mt-1.5">
-                        <span className="h-2 w-2 rounded-full bg-blue-600 shrink-0" />
-                        <span>Submitted ➔ Routed to {selectedOrg?.name} ➔ Awaiting review</span>
+                    <div className="grid grid-cols-[1.2fr_2fr] gap-2 border-b border-slate-200 dark:border-slate-800/50 pb-2">
+                      <span className="text-slate-500 dark:text-slate-450 font-bold uppercase tracking-wider text-[9px]">Checklist Items</span>
+                      <div className="space-y-1">
+                        {checklist.map((item, idx) => (
+                          <div key={idx} className="flex items-center gap-1.5 text-[10px] font-bold">
+                            <span>{item.isVerified ? '✔' : files[item.type] ? '⬆' : '⬜'}</span>
+                            <span>{item.type}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
 
-                  {/* Consent & Approval Checkbox */}
-                  <div className="flex items-start gap-3 p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl mt-4">
+                  {/* Consent Checkbox */}
+                  <div className="flex items-start gap-3 p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl">
                     <input
                       id="consent-checkbox"
                       type="checkbox"
@@ -513,7 +580,7 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest }) 
                       className="h-4 w-4 rounded border-slate-350 dark:border-slate-800 text-blue-600 focus:ring-blue-500 mt-0.5 cursor-pointer"
                     />
                     <label htmlFor="consent-checkbox" className="text-[10px] text-slate-550 dark:text-slate-400 font-bold leading-normal cursor-pointer select-none">
-                      I consent to uploading and sharing this document with <strong>{selectedOrg?.name}</strong>. I authorize the organization to review and verify this credential.
+                      I consent to uploading and sharing these checklist documents with <strong>{selectedOrg?.name}</strong>. I authorize the organization to review and verify this credential.
                     </label>
                   </div>
 
@@ -533,44 +600,31 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest }) 
                 </div>
               )}
 
-              {/* Step 5: Routing Success visualization */}
+              {/* Step 5: Success */}
               {step === 5 && (
                 <div className="text-center py-6 space-y-6">
                   <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-450 border border-emerald-500/20">
-                    <CheckCircle2 className="h-7 w-7 animate-bounce" />
+                    <CheckCircle2 className="h-7 w-7" />
                   </div>
                   
                   <div className="space-y-4 max-w-sm mx-auto">
                     <div className="flex flex-col items-center gap-1.5 border border-slate-200 dark:border-slate-800/60 rounded-xl p-4 bg-slate-50/50 dark:bg-slate-900/30 relative">
                       <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 dark:text-emerald-400">
                         <CheckCircle2 className="h-4 w-4 shrink-0" />
-                        <span>✔ Request Submitted</span>
+                        <span>✔ Checklist Verification Started</span>
                       </div>
-                      <div className="w-0.5 bg-slate-300 dark:bg-slate-800 h-4 border-l border-dashed border-slate-400 dark:border-slate-600 my-1" />
+                      <div className="w-0.5 bg-slate-300 dark:bg-slate-800 h-4 border-l border-dashed border-slate-400 dark:border-slate-650 my-1" />
                       <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-slate-200">
                         <span>📨 Routed To</span>
                         <strong className="text-blue-600 dark:text-blue-400 font-extrabold">{selectedOrg?.name}</strong>
                       </div>
-                      <div className="w-0.5 bg-slate-300 dark:bg-slate-800 h-4 border-l border-dashed border-slate-400 dark:border-slate-600 my-1" />
-                      <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-450">
-                        <span>⏳ Awaiting Organization Review</span>
-                      </div>
                     </div>
 
-                    {hasStorageError && (
-                      <div className="rounded-xl bg-amber-500/10 border border-amber-500/25 p-4 text-xs text-amber-800 dark:text-amber-400 font-semibold max-w-sm mx-auto text-left space-y-1">
-                        <p className="font-bold uppercase tracking-wider text-[10px] flex items-center gap-1.5">
-                          <span>⚠️</span> Storage Offline (Demo Mode)
-                        </p>
-                        <p className="text-slate-500 dark:text-slate-400 leading-relaxed mt-1">
-                          Firebase Storage is unconfigured or offline. Your request has been created with local metadata so you can test verification workflows normally.
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                    <p className="text-xs text-slate-550 dark:text-slate-400 font-semibold leading-relaxed">
+                      Verification requests have been successfully routed to the organization reviews pipeline. Check your dashboard for real-time status telemetry.
+                    </p>
 
-                  <div className="flex justify-center pt-2">
-                    <Button onClick={handleClose} variant="primary" className="px-8 cursor-pointer">
+                    <Button onClick={handleClose} variant="primary" className="mx-auto mt-4 px-6 justify-center">
                       Done
                     </Button>
                   </div>

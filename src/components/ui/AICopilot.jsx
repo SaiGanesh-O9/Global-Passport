@@ -1,16 +1,39 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, X, Send, Sparkles, RefreshCw, Trash2, Globe, FileText, Database, ShieldAlert } from 'lucide-react';
-import { askAI } from '@/ai/gateway';
+import { MessageSquare, X, Send, Sparkles, Trash2, Globe, FileText, Database, ShieldAlert } from 'lucide-react';
+import { askAI } from '../../ai/gateway/index.js';
+import { useAuth } from '../../hooks/useAuth.js';
+import { useDocuments } from '../../hooks/useDocuments.js';
+import { useNavigate } from 'react-router-dom';
+import { clearSessionMemory } from '../../ai/context/conversationMemory.js';
 import Button from './Button.jsx';
 import Card from './Card.jsx';
 
 export default function AICopilot() {
+  const navigate = useNavigate();
+  const { currentUser, userProfile } = useAuth();
+  const documentsState = useDocuments();
   const [isOpen, setIsOpen] = useState(false);
+
+  const role = userProfile?.role || 'student';
+  const suggestions = role === 'super_admin' ? [
+    "Show recent overrides.",
+    "Summarize platform activity.",
+    "Which organizations are inactive?"
+  ] : role === 'organization' ? [
+    "Summarize pending requests.",
+    "Which applications need review?",
+    "Show incomplete submissions."
+  ] : [
+    "What documents are missing?",
+    "Can I reuse my passport?",
+    "Explain my request status."
+  ];
+
   const [messages, setMessages] = useState([
     {
       id: 'welcome',
       sender: 'ai',
-      text: '👋 Hello! I am the **VeriFlash AI Copilot**. I can help you search internal Firestore records, query document uploads, or search the web. What would you like to know?',
+      text: '👋 Hello! I am the **UniCrypt AI Copilot**. I can help you verify credentials, search internal context documents, or retrieve general rules. What would you like to know?',
       timestamp: new Date().toLocaleTimeString(),
     }
   ]);
@@ -43,36 +66,51 @@ export default function AICopilot() {
     setLoading(true);
 
     try {
-      const history = messages
-        .filter((m) => m.id !== 'welcome')
-        .map((m) => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text }));
-
       const response = await askAI(queryText, {
-        conversationHistory: history,
+        currentUser,
+        userProfile,
+        state: {
+          verificationRequests: documentsState.verificationRequests,
+          credentials: documentsState.credentials,
+          documents: documentsState.documents,
+          organizationProfiles: documentsState.organizationProfiles,
+          verificationServices: documentsState.verificationServices,
+          credentialTemplates: documentsState.credentialTemplates,
+          activities: documentsState.activities,
+          notifications: documentsState.notifications
+        },
+        currentScreen: window.location.hash || '#dashboard'
       });
 
       console.log("AI RESPONSE:", response);
 
-      const replyText = response.reply || response.responseText || "No response from AI";
+      const replyText = response.reply || "No response from AI";
 
       const aiMessage = {
         id: `ai-${Date.now()}`,
         sender: 'ai',
         text: replyText,
         intent: response.intent || 'general',
+        confidence: response.confidence || 90,
         citations: response.citations || [],
-        messageBus: response.messageBus || [],
-        agentContributions: response.agentContributions || [],
         timestamp: new Date().toLocaleTimeString(),
       };
 
       setMessages((prev) => [...prev, aiMessage]);
+
+      // Fire platform UI action if detected
+      if (response.action) {
+        if (response.action.type === 'SWITCH_TAB') {
+          navigate(response.action.hash);
+        }
+        window.dispatchEvent(new CustomEvent('unicrypt-ai-action', { detail: response.action }));
+      }
     } catch (err) {
       console.error('AI Copilot request failed:', err);
       const errorMessage = {
         id: `err-${Date.now()}`,
         sender: 'ai',
-        text: '⚠️ **System Error**: I encountered an error communicating with the VeriFlash AI service. Please make sure local emulators are running or check your connection.',
+        text: '⚠️ **System Error**: I encountered an error communicating with the UniCrypt AI service. Please make sure local emulators are running or check your connection.',
         timestamp: new Date().toLocaleTimeString(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -82,11 +120,12 @@ export default function AICopilot() {
   };
 
   const handleClearHistory = () => {
+    clearSessionMemory();
     setMessages([
       {
         id: 'welcome',
         sender: 'ai',
-        text: '👋 Hello! I am the **VeriFlash AI Copilot**. I can help you search internal Firestore records, query document uploads, or search the web. What would you like to know?',
+        text: '👋 Hello! I am the **UniCrypt AI Copilot**. I can help you verify credentials, search internal context documents, or retrieve general rules. What would you like to know?',
         timestamp: new Date().toLocaleTimeString(),
       }
     ]);
@@ -97,7 +136,7 @@ export default function AICopilot() {
       {/* 1. FAB Floating Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 z-50 h-12 w-12 rounded-full bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/25 cursor-pointer active:scale-95 transition-all duration-150 border-none outline-none"
+        className="fixed bottom-6 right-6 z-50 h-12 w-12 rounded-full bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/25 cursor-pointer active:scale-95 transition-all duration-150 border-none outline-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-[#12131a]"
       >
         {isOpen ? <X className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
       </button>
@@ -205,28 +244,51 @@ export default function AICopilot() {
                       </div>
                     )}
 
-                    {/* Collapsible Message Bus Trace */}
-                    {isAi && msg.messageBus && msg.messageBus.length > 0 && (
-                      <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/40 space-y-1">
-                        <details className="outline-none group">
-                          <summary className="text-[9px] font-bold text-blue-650 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 uppercase tracking-wide cursor-pointer list-none flex items-center justify-between">
-                            <span>View Agent Communication Trace ({msg.messageBus.length})</span>
-                            <span className="text-[8px] transform group-open:rotate-180 transition-transform">&darr;</span>
-                          </summary>
-                          <div className="mt-2 space-y-2 text-[9px] text-slate-550 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-900/40 p-2 rounded-xl border border-slate-205 dark:border-slate-850">
-                            {msg.messageBus.map((item, idx) => (
-                              <div key={idx} className="border-b border-slate-100/50 dark:border-slate-850/50 last:border-b-0 pb-1.5 last:pb-0">
-                                <div className="flex justify-between font-bold text-slate-705 dark:text-slate-300">
-                                  <span>{item.sender} &rarr; {item.receiver}</span>
-                                  <span className="text-blue-650 dark:text-blue-400 text-[8px] bg-blue-500/10 px-1 rounded">{item.type}</span>
-                                </div>
-                                <p className="mt-1 text-slate-500 dark:text-slate-450 leading-relaxed font-semibold">
-                                  {msg.agentContributions[idx]?.contribution}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        </details>
+                    {/* Action Execution Banner */}
+                    {isAi && msg.intent && msg.intent !== 'general' && (
+                      <div className="mt-2 pt-1 border-t border-slate-100 dark:border-slate-800/40 flex justify-between items-center text-[9px] font-bold text-indigo-650 dark:text-indigo-400 uppercase tracking-wide">
+                        <span className="flex items-center gap-1">
+                          <Database className="h-2.5 w-2.5" />
+                          <span>Mode: {msg.intent} Knowledge</span>
+                        </span>
+                        {msg.confidence && (
+                          <span>Confidence: {msg.confidence}%</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Render starter suggestions under welcome message bubble */}
+                    {msg.id === 'welcome' && (
+                      <div className="mt-4 pt-3 border-t border-slate-105/80 dark:border-slate-800/40 space-y-2">
+                        <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Suggested starter prompts</p>
+                        <div className="flex flex-col gap-1.5 mt-2">
+                          {suggestions.map((suggestion, sIdx) => (
+                            <button
+                              key={sIdx}
+                              onClick={() => {
+                                setInput(suggestion);
+                              }}
+                              className="w-full text-left px-3 py-1.5 bg-slate-50 dark:bg-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-semibold rounded-xl border border-slate-200 dark:border-slate-800/50 hover:border-slate-350 transition-all duration-150 cursor-pointer"
+                            >
+                              {suggestion}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Retry button for system errors */}
+                    {msg.text.includes('⚠️ System Error') && (
+                      <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/40 flex justify-end">
+                        <button
+                          onClick={() => {
+                            // Clear error and resubmit input message
+                            setInput(messages[messages.length - 2]?.text || '');
+                          }}
+                          className="px-2 py-0.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-[9px] font-bold uppercase rounded border border-rose-500/20 cursor-pointer"
+                        >
+                          Retry Call
+                        </button>
                       </div>
                     )}
                   </div>
@@ -266,7 +328,7 @@ export default function AICopilot() {
             <button
               type="submit"
               disabled={loading || !input.trim()}
-              className="h-8.5 w-8.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center disabled:opacity-40 cursor-pointer transition-all duration-150 border-none outline-none"
+              className="h-8.5 w-8.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center disabled:opacity-40 cursor-pointer transition-all duration-150 border-none outline-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:focus:ring-offset-[#12131a]"
             >
               <Send className="h-4 w-4" />
             </button>

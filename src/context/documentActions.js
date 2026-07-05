@@ -5,6 +5,11 @@ export const VERIFICATION_ACTION_TYPES = {
   REQUEST_MORE_INFORMATION: 'REQUEST_MORE_INFORMATION',
   SET_VERIFICATION_REQUESTS: 'SET_VERIFICATION_REQUESTS',
   SET_ORGANIZATIONS: 'SET_ORGANIZATIONS',
+  SET_ORGANIZATION_PROFILES: 'SET_ORGANIZATION_PROFILES',
+  SET_VERIFICATION_SERVICES: 'SET_VERIFICATION_SERVICES',
+  SET_CREDENTIAL_TEMPLATES: 'SET_CREDENTIAL_TEMPLATES',
+  SET_CREDENTIALS: 'SET_CREDENTIALS',
+  SET_DOCUMENTS: 'SET_DOCUMENTS',
   SET_USERS: 'SET_USERS',
   SET_AUDIT_LOGS: 'SET_AUDIT_LOGS',
   SET_PLATFORM_SETTINGS: 'SET_PLATFORM_SETTINGS',
@@ -53,6 +58,41 @@ export function setOrganizations(organizations) {
   return {
     type: VERIFICATION_ACTION_TYPES.SET_ORGANIZATIONS,
     payload: { organizations },
+  };
+}
+
+export function setOrganizationProfiles(organizationProfiles) {
+  return {
+    type: VERIFICATION_ACTION_TYPES.SET_ORGANIZATION_PROFILES,
+    payload: { organizationProfiles },
+  };
+}
+
+export function setVerificationServices(verificationServices) {
+  return {
+    type: VERIFICATION_ACTION_TYPES.SET_VERIFICATION_SERVICES,
+    payload: { verificationServices },
+  };
+}
+
+export function setCredentialTemplates(credentialTemplates) {
+  return {
+    type: VERIFICATION_ACTION_TYPES.SET_CREDENTIAL_TEMPLATES,
+    payload: { credentialTemplates },
+  };
+}
+
+export function setCredentials(credentials) {
+  return {
+    type: VERIFICATION_ACTION_TYPES.SET_CREDENTIALS,
+    payload: { credentials },
+  };
+}
+
+export function setDocuments(documents) {
+  return {
+    type: VERIFICATION_ACTION_TYPES.SET_DOCUMENTS,
+    payload: { documents },
   };
 }
 

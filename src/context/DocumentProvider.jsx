@@ -1,10 +1,16 @@
 import { createContext, useMemo, useReducer, useEffect, useRef, useState } from 'react';
 import { db, collection, onSnapshot, addDoc, doc, setDoc, updateDoc, deleteDoc, arrayUnion, query, where, orderBy, limit, getDoc } from '../firebase/firebase.js';
 import { useAuth } from '../hooks/useAuth.js';
-import { askAI } from '@/ai/gateway';
+import { askAI } from '../ai/gateway/index.js';
+import { sendNotification } from '../services/notificationService.js';
 import {
   setVerificationRequests,
   setOrganizations,
+  setOrganizationProfiles,
+  setVerificationServices,
+  setCredentialTemplates,
+  setCredentials,
+  setDocuments,
   setUsers,
   setAuditLogs,
   setPlatformSettings,
@@ -28,11 +34,35 @@ export const VerificationDispatchContext = createContext(null);
 export function DocumentProvider({ children }) {
   const { currentUser, userProfile } = useAuth();
   const [selectedRequestId, setSelectedRequestId] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const q = query(
+      collection(db, 'notifications'),
+      where('recipientEmail', '==', currentUser.email),
+      orderBy('createdAt', 'desc')
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const list = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      setNotifications(list);
+    }, (err) => {
+      console.warn("Central notifications subscription error:", err.message);
+    });
+    return () => unsub();
+  }, [currentUser]);
+
   const [state, dispatch] = useReducer(
     documentReducer,
     {
       verificationRequests: [],
       organizations: [],
+      organizationProfiles: [],
+      verificationServices: [],
+      credentialTemplates: [],
+      credentials: [],
+      documents: [],
       users: [],
       auditLogs: [],
       platformSettings: {
@@ -51,8 +81,8 @@ export function DocumentProvider({ children }) {
   useEffect(() => {
     if (!currentUser || !userProfile) return;
 
-    const unsubscribeOrgs = onSnapshot(collection(db, 'organizations'), (snapshot) => {
-      if (snapshot.empty && userProfile.role === 'super_admin') {
+    const unsubscribeOrgs = onSnapshot(collection(db, 'organizations'), async (snapshot) => {
+      if (snapshot.empty) {
         const defaultOrgs = [
           {
             organizationId: 'org-northbridge',
@@ -88,9 +118,36 @@ export function DocumentProvider({ children }) {
             createdAt: new Date().toISOString()
           }
         ];
-        defaultOrgs.forEach(async (org) => {
-          await setDoc(doc(db, 'organizations', org.organizationId), org);
-        });
+
+        try {
+          for (const org of defaultOrgs) {
+            await setDoc(doc(db, 'organizations', org.organizationId), org);
+          }
+
+          const { organizationProfiles, verificationServices, credentialTemplates, credentials, documents } = createInitialDocumentState(currentUser.uid);
+          
+          for (const prof of organizationProfiles) {
+            await setDoc(doc(db, 'organizationProfiles', prof.id), prof);
+          }
+
+          for (const service of verificationServices) {
+            await setDoc(doc(db, 'verificationServices', service.id), service);
+          }
+
+          for (const template of credentialTemplates) {
+            await setDoc(doc(db, 'credentialTemplates', template.id), template);
+          }
+
+          for (const cred of credentials) {
+            await setDoc(doc(db, 'credentials', cred.id), cred);
+          }
+
+          for (const docItem of documents) {
+            await setDoc(doc(db, 'documents', docItem.id), docItem);
+          }
+        } catch (seedErr) {
+          console.warn("Seeding database failed:", seedErr.message);
+        }
       } else {
         const orgs = [];
         snapshot.forEach((doc) => {
@@ -103,6 +160,67 @@ export function DocumentProvider({ children }) {
     });
 
     return () => unsubscribeOrgs();
+  }, [currentUser, userProfile]);
+
+  // 1.2. Live Organization Profiles subscription
+  useEffect(() => {
+    if (!currentUser || !userProfile) return;
+    const unsub = onSnapshot(collection(db, 'organizationProfiles'), (snap) => {
+      const list = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      dispatch(setOrganizationProfiles(list));
+    }, (err) => console.error("Profiles listener error:", err));
+    return () => unsub();
+  }, [currentUser, userProfile]);
+
+  // 1.3. Live Verification Services subscription
+  useEffect(() => {
+    if (!currentUser || !userProfile) return;
+    const unsub = onSnapshot(collection(db, 'verificationServices'), (snap) => {
+      const list = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      dispatch(setVerificationServices(list));
+    }, (err) => console.error("Services listener error:", err));
+    return () => unsub();
+  }, [currentUser, userProfile]);
+
+  // 1.4. Live Credential Templates subscription
+  useEffect(() => {
+    if (!currentUser || !userProfile) return;
+    const unsub = onSnapshot(collection(db, 'credentialTemplates'), (snap) => {
+      const list = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      dispatch(setCredentialTemplates(list));
+    }, (err) => console.error("Templates listener error:", err));
+    return () => unsub();
+  }, [currentUser, userProfile]);
+
+  // 1.5. Live Credentials subscription
+  useEffect(() => {
+    if (!currentUser || !userProfile) return;
+    let q;
+    if (userProfile.role === 'super_admin' || userProfile.role === 'organization') {
+      q = collection(db, 'credentials');
+    } else {
+      q = query(collection(db, 'credentials'), where('ownerEmail', '==', userProfile.email || currentUser.email || 'student@localhost'));
+    }
+    const unsub = onSnapshot(q, (snap) => {
+      const list = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      dispatch(setCredentials(list));
+    }, (err) => console.error("Credentials listener error:", err));
+    return () => unsub();
+  }, [currentUser, userProfile]);
+
+  // 1.6. Live Documents subscription
+  useEffect(() => {
+    if (!currentUser || !userProfile) return;
+    const unsub = onSnapshot(collection(db, 'documents'), (snap) => {
+      const list = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      dispatch(setDocuments(list));
+    }, (err) => console.error("Documents listener error:", err));
+    return () => unsub();
   }, [currentUser, userProfile]);
 
   // 2. Live Platform Settings subscription + seed logic
@@ -325,6 +443,19 @@ export function DocumentProvider({ children }) {
             title: 'New Request',
             desc: `Verification request initiated for ${payload.credentialType}.`
           });
+          
+          await sendNotification(currentUser.uid, currentUser.email, 'VERIFICATION_SUBMITTED', {
+            requestId: genId,
+            organizationName: payload.organization.name,
+            serviceName: payload.credentialType
+          });
+
+          await sendNotification(payload.organization.id, `${payload.organization.id}@localhost`, 'NEW_REQUEST_ALERT', {
+            requestId: genId,
+            organizationName: payload.organization.name,
+            serviceName: payload.credentialType,
+            recipientName: currentUser.displayName || currentUser.email?.split('@')[0]
+          });
         } catch (dbErr) {
           console.warn("Firestore save failed, falling back to local memory update:", dbErr.message);
           dispatch({
@@ -375,6 +506,12 @@ export function DocumentProvider({ children }) {
             title: `${reqData.credentialType || 'Document'} Approved`,
             desc: `Approved by ${reqData.organization?.name || 'Verifier'}.`
           });
+
+          await sendNotification(ownerId, reqData.ownerEmail || 'student@localhost', 'VERIFICATION_APPROVED', {
+            requestId: verificationId,
+            organizationName: reqData.organization?.name || 'UniCrypt Hub',
+            serviceName: reqData.credentialType || 'Document'
+          });
         } catch (dbErr) {
           console.warn("Firestore approve failed, falling back to local memory update:", dbErr.message);
           dispatch({
@@ -422,6 +559,13 @@ export function DocumentProvider({ children }) {
             title: `${reqData.credentialType || 'Document'} Rejected`,
             desc: `Rejected by ${reqData.organization?.name || 'Verifier'}.`
           });
+
+          await sendNotification(ownerId, reqData.ownerEmail || 'student@localhost', 'VERIFICATION_REJECTED', {
+            requestId: verificationId,
+            organizationName: reqData.organization?.name || 'UniCrypt Hub',
+            serviceName: reqData.credentialType || 'Document',
+            reason: 'Submitted details do not match credentials.'
+          });
         } catch (dbErr) {
           console.warn("Firestore reject failed, falling back to local memory update:", dbErr.message);
           dispatch({
@@ -468,6 +612,12 @@ export function DocumentProvider({ children }) {
             organizationName: reqData.organization?.name || 'Verifier',
           title: `Information Requested`,
           desc: `Additional information requested for ${reqData.credentialType || 'Document'} by ${reqData.organization?.name || 'Verifier'}.`
+          });
+
+          await sendNotification(ownerId, reqData.ownerEmail || 'student@localhost', 'INFO_REQUESTED', {
+            requestId: verificationId,
+            organizationName: reqData.organization?.name || 'UniCrypt Hub',
+            serviceName: reqData.credentialType || 'Document'
           });
         } catch (dbErr) {
           console.warn("Firestore requestMoreInfo failed, falling back to local memory update:", dbErr.message);
@@ -626,6 +776,29 @@ export function DocumentProvider({ children }) {
           credentialType: reqData.credentialType || 'Document',
           organizationName: reqData.organization?.name || 'Super Admin'
         });
+
+        await sendNotification(ownerId, reqData.ownerEmail || 'student@localhost', 'ADMIN_OVERRIDE_ALERT', {
+          requestId: reqId,
+          organizationName: reqData.organization?.name || 'Super Admin',
+          serviceName: reqData.credentialType || 'Document',
+          status: newStatus
+        });
+      },
+      createVerificationService: async (serviceId, serviceData) => {
+        await setDoc(doc(db, 'verificationServices', serviceId), serviceData);
+      },
+      updateVerificationService: async (serviceId, updates) => {
+        await updateDoc(doc(db, 'verificationServices', serviceId), updates);
+      },
+      deleteVerificationService: async (serviceId) => {
+        await deleteDoc(doc(db, 'verificationServices', serviceId));
+        await deleteDoc(doc(db, 'credentialTemplates', `template-${serviceId}`));
+      },
+      saveCredentialTemplate: async (templateId, templateData) => {
+        await setDoc(doc(db, 'credentialTemplates', templateId), templateData);
+      },
+      saveOrganizationProfile: async (profileId, profileData) => {
+        await setDoc(doc(db, 'organizationProfiles', profileId), profileData);
       },
       deleteUser: async (userId, actorEmail, actorId) => {
         await deleteDoc(doc(db, 'users', userId));
@@ -641,6 +814,7 @@ export function DocumentProvider({ children }) {
       },
       deleteOrganization: async (orgId, actorEmail, actorId) => {
         await deleteDoc(doc(db, 'organizations', orgId));
+        await deleteDoc(doc(db, 'organizationProfiles', orgId));
         const logRef = doc(collection(db, 'auditLogs'));
         await setDoc(logRef, {
           action: 'DELETE_ORGANIZATION',
@@ -663,8 +837,9 @@ export function DocumentProvider({ children }) {
 
   const stateContextValue = useMemo(() => ({
     ...state,
+    notifications,
     selectedRequestId
-  }), [state, selectedRequestId]);
+  }), [state, notifications, selectedRequestId]);
 
   return (
     <VerificationStateContext.Provider value={stateContextValue}>
