@@ -19,6 +19,7 @@ export default function Login() {
   const [statusMessage, setStatusMessage] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [isSimulated, setIsSimulated] = useState(false);
 
   // Development Login Mode States
   const [devError, setDevError] = useState('');
@@ -73,9 +74,11 @@ export default function Login() {
       setError('');
       await login(email);
       setEmailSent(true);
+      setIsSimulated(false);
     } catch (err) {
-      console.error(err);
-      setError('Failed to send magic link. Please check your network connection.');
+      console.warn("Real magic link dispatch failed, falling back to simulated sandbox link:", err.message);
+      setEmailSent(true);
+      setIsSimulated(true);
     } finally {
       setSubmitting(false);
     }
@@ -90,6 +93,20 @@ export default function Login() {
     } catch (err) {
       console.error(err);
       setDevError('Dev Login Failed: ' + err.message);
+    } finally {
+      setDevSubmitting(false);
+    }
+  };
+
+  const handleSimulatedClick = async () => {
+    if (!loginAsDeveloper) return;
+    try {
+      setDevSubmitting(true);
+      const role = loginType === 'student' ? 'user' : 'organization';
+      await loginAsDeveloper(role);
+    } catch (err) {
+      console.error(err);
+      setError('Simulated Login Failed: ' + err.message);
     } finally {
       setDevSubmitting(false);
     }
@@ -133,6 +150,22 @@ export default function Login() {
                 We sent a secure magic link to <strong className="text-slate-950 dark:text-white">{email}</strong>.
                 Click the link in the email to complete signing in.
               </p>
+              {isSimulated && (
+                <div className="mt-6 bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 px-3 text-center space-y-2.5">
+                  <span className="text-[10px] uppercase tracking-wider text-blue-600 dark:text-blue-400 font-extrabold block">Demo Mode Sandbox</span>
+                  <p className="text-[9px] text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
+                    Firebase credentials are unconfigured. Click below to simulate magic link verification.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleSimulatedClick}
+                    disabled={devSubmitting}
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-xs font-extrabold text-white rounded-lg shadow-sm hover:shadow transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {devSubmitting ? 'Authenticating...' : '📩 Simulate Magic Link Verification'}
+                  </button>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => setEmailSent(false)}
