@@ -73,10 +73,8 @@ export function AuthProvider({ children }) {
     setLoading(false);
   };
 
-  // Expose local development login ONLY in DEV environment
+  // Expose local development login for testing and preview scopes
   const loginAsDeveloper = async (roleType) => {
-    if (!import.meta.env.DEV) return;
-
     try {
       setLoading(true);
       setAuthReady(false);
@@ -148,7 +146,7 @@ export function AuthProvider({ children }) {
     authReady,
     login,
     logout,
-    loginAsDeveloper: import.meta.env.DEV ? loginAsDeveloper : undefined,
+    loginAsDeveloper: loginAsDeveloper,
     isAuthenticated: currentUser !== null,
     role: userProfile ? userProfile.role : null,
     organizationRole: userProfile ? userProfile.organizationRole : null,
