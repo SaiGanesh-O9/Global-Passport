@@ -80,16 +80,21 @@ export function AuthProvider({ children }) {
       setAuthReady(false);
       
       let authUid = `dev-mock-uid-${Date.now()}`;
+      const stableEmail = roleType === 'super_admin' ? 'saiganeshkrovvidi.092005@gmail.com' :
+                         roleType === 'organization' ? 'org@localhost' : 'student@localhost';
       let mockUser = {
         uid: authUid,
-        email: `dev-${roleType}@localhost`,
+        email: stableEmail,
         displayName: `Dev ${roleType.toUpperCase()}`
       };
 
       try {
         const cred = await signInAnonymously(auth);
         authUid = cred.user.uid;
-        mockUser = cred.user;
+        mockUser = {
+          ...cred.user,
+          email: stableEmail,
+        };
       } catch (authErr) {
         console.warn("Firebase Anonymous Auth failed, falling back to local mock auth:", authErr.message);
       }
@@ -98,14 +103,14 @@ export function AuthProvider({ children }) {
         user: {
           uid: authUid,
           name: 'Development User',
-          email: `dev-user-${authUid.substring(0, 5)}@localhost`,
+          email: 'student@localhost',
           role: 'student',
           status: 'active',
         },
         organization: {
           uid: authUid,
           name: 'Demo Organization',
-          email: `dev-org-${authUid.substring(0, 5)}@localhost`,
+          email: 'org@localhost',
           role: 'organization',
           status: 'active',
           organizationId: 'org-northbridge',
