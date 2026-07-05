@@ -41,7 +41,7 @@ const CREDENTIAL_TYPE_MAP = {
 
 const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg'];
 
-export default function UploadDocumentModal({ isOpen, onClose }) {
+export default function UploadDocumentModal({ isOpen, onClose, targetRequest }) {
   const { requestVerification } = useDocumentActions();
 
   // Wizard state: 1: Type, 2: Organization, 3: Files, 4: Review, 5: Success
@@ -60,6 +60,25 @@ export default function UploadDocumentModal({ isOpen, onClose }) {
   const [submitProgress, setSubmitProgress] = useState('');
   const [error, setError] = useState('');
   const [hasStorageError, setHasStorageError] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (targetRequest) {
+        setCredentialType(targetRequest.credentialType || credentialTypeOptions[0]);
+        setSelectedOrg(targetRequest.organization || null);
+        setStep(3); // Skip directly to file upload step
+      } else {
+        setStep(1);
+        setCredentialType(credentialTypeOptions[0]);
+        setSelectedOrg(null);
+      }
+      setFiles([]);
+      setError('');
+      setPurpose('');
+      setSubmitProgress('');
+      setSubmitting(false);
+    }
+  }, [isOpen, targetRequest]);
 
 
 
@@ -149,7 +168,8 @@ export default function UploadDocumentModal({ isOpen, onClose }) {
       setSubmitProgress('Uploading documents to Cloudinary...');
       setError('');
 
-      const newRequestId = createDocumentId();
+      const isResolving = !!targetRequest;
+      const newRequestId = isResolving ? targetRequest.id : createDocumentId();
       const fileMetadata = [];
       let uploadMode = 'cloud';
       let storageStatus = 'enabled';
@@ -177,16 +197,16 @@ export default function UploadDocumentModal({ isOpen, onClose }) {
         }
       }
 
-      setSubmitProgress('Submitting verification request...');
+      setSubmitProgress(isResolving ? 'Resolving requested document...' : 'Submitting verification request...');
       await requestVerification({
         id: newRequestId,
-        credentialType,
-        organization: {
+        credentialType: isResolving ? targetRequest.credentialType : credentialType,
+        organization: isResolving ? targetRequest.organization : {
           id: selectedOrg.id,
           name: selectedOrg.name,
           type: selectedOrg.type,
         },
-        purpose: purpose.trim() || `${credentialType} Verification`,
+        purpose: isResolving ? targetRequest.purpose : (purpose.trim() || `${credentialType} Verification`),
         fileName: files[0].name,
         files: fileMetadata,
         uploadMode,

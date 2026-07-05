@@ -214,7 +214,7 @@ export function DocumentProvider({ children }) {
     } else {
       q = query(
         collection(db, 'verificationRequests'),
-        where('ownerId', '==', currentUser.uid)
+        where('ownerEmail', '==', userProfile.email || currentUser.email)
       );
     }
 
@@ -288,9 +288,14 @@ export function DocumentProvider({ children }) {
           ownerId: currentUser.uid,
           ownerName: currentUser.displayName || currentUser.email?.split('@')[0] || 'Anonymous User',
           ownerEmail: currentUser.email || `anonymous-${currentUser.uid.substring(0, 5)}@localhost`,
-          timeline: [
-            createTimelineEntry('Verification Request Submitted', VERIFICATION_STATUS.PENDING, requestDate)
-          ],
+          timeline: state.verificationRequests.find(r => r.id === payload.id)?.timeline
+            ? [
+                ...state.verificationRequests.find(r => r.id === payload.id).timeline,
+                createTimelineEntry('Document Uploaded & Request Submitted', VERIFICATION_STATUS.PENDING, requestDate)
+              ]
+            : [
+                createTimelineEntry('Verification Request Submitted', VERIFICATION_STATUS.PENDING, requestDate)
+              ],
         };
 
         const requestRef = payload.id ? doc(db, 'verificationRequests', payload.id) : doc(collection(db, 'verificationRequests'));
@@ -462,6 +467,67 @@ export function DocumentProvider({ children }) {
           dispatch({
             type: 'REQUEST_MORE_INFORMATION',
             payload: { verificationId }
+          });
+        }
+      },
+      requestDocumentFromUser: async (payload) => {
+        if (!currentUser) {
+          throw new Error('Verifier must be authenticated to request a document.');
+        }
+
+        const requestDate = new Date();
+        const requestData = {
+          credentialType: payload.credentialType,
+          organization: {
+            id: userProfile.organizationId || 'org-northbridge',
+            name: userProfile.organizationName || 'Northbridge University',
+            type: 'University',
+          },
+          organizationId: userProfile.organizationId || 'org-northbridge',
+          purpose: payload.purpose,
+          fileName: '',
+          files: [],
+          uploadMode: 'cloud',
+          storageStatus: 'enabled',
+          requestDate: formatRequestDate(requestDate),
+          status: VERIFICATION_STATUS.INFORMATION_REQUESTED,
+          owner: {
+            uid: `requested-user-${Date.now()}`,
+            name: payload.userEmail.split('@')[0],
+            email: payload.userEmail,
+          },
+          ownerId: `requested-user-${Date.now()}`,
+          ownerName: payload.userEmail.split('@')[0],
+          ownerEmail: payload.userEmail,
+          timeline: [
+            createTimelineEntry('Document Verification Requested by Organization', VERIFICATION_STATUS.INFORMATION_REQUESTED, requestDate)
+          ],
+        };
+
+        const requestRef = doc(collection(db, 'verificationRequests'));
+        const genId = requestRef.id;
+        const finalRequestData = { ...requestData, id: genId };
+
+        try {
+          await setDoc(requestRef, finalRequestData);
+          await addDoc(collection(db, 'activityLogs'), {
+            requestId: genId,
+            type: 'Information Requested',
+            before: 'None',
+            after: 'Information Requested',
+            actor: currentUser.email || 'Verifier',
+            ownerId: finalRequestData.ownerId,
+            timestamp: new Date().toISOString(),
+            credentialType: payload.credentialType,
+            organizationName: userProfile.organizationName || 'Northbridge University',
+            title: 'Document Requested',
+            desc: `Requested ${payload.credentialType} from ${payload.userEmail}.`
+          });
+        } catch (dbErr) {
+          console.warn("Firestore save failed, falling back to local memory update:", dbErr.message);
+          dispatch({
+            type: 'REQUEST_VERIFICATION',
+            payload: { request: finalRequestData }
           });
         }
       },

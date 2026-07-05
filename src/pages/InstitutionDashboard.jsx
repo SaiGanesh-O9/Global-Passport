@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { BarChart3, BadgeCheck, ClipboardList, XCircle, Sparkles } from 'lucide-react';
+import { BarChart3, BadgeCheck, ClipboardList, XCircle, Sparkles, Plus } from 'lucide-react';
 import InstitutionTable from '../components/dashboard/InstitutionTable.jsx';
 import SidebarLayout from '../components/layout/SidebarLayout.jsx';
 import Card from '../components/ui/Card.jsx';
 import StatCard from '../components/ui/StatCard.jsx';
+import RequestDocumentModal from '../components/dashboard/RequestDocumentModal.jsx';
 import { useDocuments } from '../hooks/useDocuments.js';
 
 export const institutionNavItems = [
@@ -16,6 +18,7 @@ export const institutionNavItems = [
 export default function InstitutionDashboard() {
   const { metrics, pendingVerificationRequests, approvedVerificationRequests, rejectedVerificationRequests } = useDocuments();
   const location = useLocation();
+  const [showRequestModal, setShowRequestModal] = useState(false);
   const activeTab = location.hash.replace('#', '') || 'pending';
 
   const metricCards = [
@@ -108,7 +111,7 @@ export default function InstitutionDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
             Organization Verification Center
@@ -117,6 +120,13 @@ export default function InstitutionDashboard() {
             Review verification requests
           </h1>
         </div>
+        <button
+          onClick={() => setShowRequestModal(true)}
+          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-xs font-extrabold text-white rounded-xl shadow-sm hover:shadow transition-all flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+        >
+          <Plus className="h-4 w-4" />
+          Request Document
+        </button>
       </div>
 
       {/* AI Decision & Workload Insights */}
@@ -157,6 +167,11 @@ export default function InstitutionDashboard() {
       </div>
 
       {activeTab === 'analytics' ? renderAnalytics() : <InstitutionTable activeTab={activeTab} />}
+
+      <RequestDocumentModal
+        isOpen={showRequestModal}
+        onClose={() => setShowRequestModal(false)}
+      />
     </div>
   );
 }

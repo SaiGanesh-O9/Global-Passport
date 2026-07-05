@@ -6,6 +6,7 @@ import { VERIFICATION_STATUS } from '../../context/documentUtils.js';
 import Button from '../ui/Button.jsx';
 import Card from '../ui/Card.jsx';
 import StatusBadge from '../ui/StatusBadge.jsx';
+import UploadDocumentModal from './UploadDocumentModal.jsx';
 
 
 
@@ -87,6 +88,7 @@ export default function DocumentTable() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [expandedRequests, setExpandedRequests] = useState({});
   const [highlightedRequests, setHighlightedRequests] = useState({});
+  const [resolveRequest, setResolveRequest] = useState(null);
   const prevRequestsRef = useRef(null);
 
   useEffect(() => {
@@ -342,6 +344,25 @@ export default function DocumentTable() {
                             </div>
                           )}
 
+                          {req.status === 'Information Requested' && (
+                            <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4.5 space-y-3 mt-4">
+                              <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                📝 <strong>{req.organization?.name || req.requestedOrganization}</strong> requested this document.
+                              </p>
+                              {req.purpose && (
+                                <p className="text-xs text-slate-500 dark:text-slate-450 italic">
+                                  Instructions: "{req.purpose}"
+                                </p>
+                              )}
+                              <button
+                                onClick={() => setResolveRequest(req)}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-xs font-extrabold text-white rounded-lg shadow-sm hover:shadow transition-all cursor-pointer flex items-center gap-1.5"
+                              >
+                                📥 Upload & Submit Document
+                              </button>
+                            </div>
+                          )}
+
                           {/* Request unique properties */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-2">
                             <div className="bg-white dark:bg-slate-900/30 border border-slate-200/50 dark:border-slate-800/40 rounded-xl p-3.5">
@@ -365,6 +386,11 @@ export default function DocumentTable() {
           </tbody>
         </table>
       </div>
+      <UploadDocumentModal
+        isOpen={resolveRequest !== null}
+        onClose={() => setResolveRequest(null)}
+        targetRequest={resolveRequest}
+      />
     </Card>
   );
 }
