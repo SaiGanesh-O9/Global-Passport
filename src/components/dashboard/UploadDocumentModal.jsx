@@ -268,13 +268,18 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
 
       setSubmitProgress('Submitting verification request...');
 
-      // Save verification request details
+      // Save verification request details safely resolving any null org/service contexts
+      const resolvedOrgId = selectedOrg?.id || targetRequest?.organizationId || 'org-northbridge';
+      const resolvedOrgName = selectedOrg?.name || targetRequest?.organizationName || 'Northbridge University';
+      const resolvedServiceId = selectedService?.id || targetRequest?.serviceId || 'service-iowa-degree';
+      const resolvedServiceName = selectedService?.name || targetRequest?.serviceName || 'Degree Verification';
+
       const requestPayload = {
         id: newRequestId,
-        organizationId: selectedOrg.id,
-        organizationName: selectedOrg.name,
-        serviceId: selectedService.id,
-        serviceName: selectedService.name,
+        organizationId: resolvedOrgId,
+        organizationName: resolvedOrgName,
+        serviceId: resolvedServiceId,
+        serviceName: resolvedServiceName,
         ownerEmail: userProfile?.email || currentUser?.email || 'student@localhost',
         status: VERIFICATION_STATUS.PENDING,
         progress: progressPercentage,
