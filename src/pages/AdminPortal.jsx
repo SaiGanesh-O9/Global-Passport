@@ -32,7 +32,8 @@ import {
   Save,
   HelpCircle,
   ExternalLink,
-  ShieldAlert as ShieldXIcon
+  ShieldAlert as ShieldXIcon,
+  ClipboardList
 } from 'lucide-react';
 
 export default function AdminPortal() {
