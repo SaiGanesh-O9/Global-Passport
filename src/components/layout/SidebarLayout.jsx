@@ -213,14 +213,14 @@ export default function SidebarLayout({ children, navItems, subtitle, title }) {
           <Breadcrumbs items={breadcrumbItems} />
           
           <div className="flex items-center gap-3.5">
-            {/* Search query placeholder */}
+            {/* Functional search query bar */}
             <div className="relative hidden md:block">
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400 animate-pulse" />
               <input
                 type="text"
-                placeholder="Search..."
-                disabled
-                className="pl-8.5 pr-3 py-1.5 w-48 text-[11px] font-semibold text-slate-400 border border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-900/40 rounded-xl cursor-not-allowed"
+                placeholder="Global Search..."
+                onChange={(e) => window.dispatchEvent(new CustomEvent('unicrypt-global-search', { detail: e.target.value }))}
+                className="pl-8.5 pr-3 py-1.5 w-48 text-[11px] font-semibold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-900/40 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/30"
               />
             </div>
             

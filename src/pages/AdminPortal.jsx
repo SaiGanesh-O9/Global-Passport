@@ -1147,6 +1147,28 @@ export default function AdminPortal() {
                 />
               </div>
 
+              {/* Organization Directory Bulk Delete Banner */}
+              {(() => {
+                const count = Object.keys(selectedOrgIds).filter(id => selectedOrgIds[id]).length;
+                if (count === 0) return null;
+                return (
+                  <div className="bg-red-500/10 border border-red-500/20 px-5 py-3 rounded-2xl flex items-center justify-between gap-4 animate-slide-down text-xs font-semibold text-red-700 dark:text-red-400">
+                    <span className="flex items-center gap-2">
+                      <span className="h-5 w-5 flex items-center justify-center bg-red-650 text-white rounded font-extrabold text-[10px]">{count}</span>
+                      <span>organization(s) selected for deletion.</span>
+                    </span>
+                    <div className="flex gap-2">
+                      <Button onClick={handleBulkDeleteOrgs} variant="danger" className="py-1 px-3.5 text-[11px] font-extrabold">
+                        Bulk Delete Organizations
+                      </Button>
+                      <Button onClick={() => setSelectedOrgIds({})} variant="secondary" className="py-1 px-3.5 text-[11px] font-extrabold">
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Organizations Table */}
               <Card className="overflow-x-auto border border-slate-200 dark:border-slate-800/40 bg-white dark:bg-[#12131a]">
                 {loadingOrgs ? (
@@ -1161,6 +1183,23 @@ export default function AdminPortal() {
                   <table className="w-full min-w-[850px] text-left text-xs border-collapse">
                     <thead className="bg-slate-50 dark:bg-slate-900/30 text-slate-500 dark:text-slate-450 dark:text-slate-500 font-bold uppercase border-b border-slate-200 dark:border-slate-800/40">
                       <tr>
+                        <th className="px-4 py-3 w-12 text-center">
+                          <input
+                            type="checkbox"
+                            checked={filteredOrganizations.length > 0 && filteredOrganizations.every(org => selectedOrgIds[org.id])}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              const newSelected = {};
+                              filteredOrganizations.forEach(org => {
+                                if (checked) {
+                                  newSelected[org.id] = true;
+                                }
+                              });
+                              setSelectedOrgIds(newSelected);
+                            }}
+                            className="h-4 w-4 rounded border-slate-300 dark:border-slate-800 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          />
+                        </th>
                         <th className="px-4 py-3">Name / Website</th>
                         <th className="px-4 py-3">Type</th>
                         <th className="px-4 py-3">Status</th>
@@ -1172,6 +1211,24 @@ export default function AdminPortal() {
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800/40 text-slate-700 dark:text-slate-300">
                       {filteredOrganizations.map((org) => (
                         <tr key={org.id} className="hover:bg-slate-50/40 dark:hover:bg-slate-800/30 dark:bg-slate-900/30/50 bg-white dark:bg-[#12131a]">
+                          <td className="px-4 py-3.5 w-12 text-center">
+                            <input
+                              type="checkbox"
+                              checked={!!selectedOrgIds[org.id]}
+                              onChange={(e) => {
+                                setSelectedOrgIds(prev => {
+                                  const next = { ...prev };
+                                  if (e.target.checked) {
+                                    next[org.id] = true;
+                                  } else {
+                                    delete next[org.id];
+                                  }
+                                  return next;
+                                });
+                              }}
+                              className="h-4 w-4 rounded border-slate-300 text-blue-650 focus:ring-blue-500 cursor-pointer"
+                            />
+                          </td>
                           <td className="px-4 py-3.5">
                             <p className="font-bold text-slate-950 dark:text-white">{org.name}</p>
                             {org.website && (

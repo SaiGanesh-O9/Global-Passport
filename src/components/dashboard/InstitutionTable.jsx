@@ -15,6 +15,15 @@ export default function InstitutionTable({ activeTab }) {
   const { approveVerification, rejectVerification, requestMoreInformation } = useDocumentActions();
   const [processingId, setProcessingId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    const handleGlobalSearch = (e) => {
+      setSearchQuery(e.detail || '');
+      setCurrentPage(1);
+    };
+    window.addEventListener('unicrypt-global-search', handleGlobalSearch);
+    return () => window.removeEventListener('unicrypt-global-search', handleGlobalSearch);
+  }, []);
   const [statusFilter, setStatusFilter] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedRequests, setExpandedRequests] = useState({});

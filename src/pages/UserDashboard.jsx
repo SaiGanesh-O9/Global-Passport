@@ -78,6 +78,14 @@ export default function UserDashboard() {
   const [resolveRequest, setResolveRequest] = useState(null);
   const [selectedDiscoveryOrg, setSelectedDiscoveryOrg] = useState(null);
   const [orgSearchQuery, setOrgSearchQuery] = useState('');
+
+  useEffect(() => {
+    const handleGlobalSearch = (e) => {
+      setOrgSearchQuery(e.detail || '');
+    };
+    window.addEventListener('unicrypt-global-search', handleGlobalSearch);
+    return () => window.removeEventListener('unicrypt-global-search', handleGlobalSearch);
+  }, []);
   
   // Vault filter tab state: 'Verified' | 'Pending' | 'Requested' | 'Rejected' | 'Expired'
   const [vaultFilter, setVaultFilter] = useState('Verified');
