@@ -18,6 +18,12 @@ export default function InstitutionTable({ activeTab }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedRequests, setExpandedRequests] = useState({});
   const [feedbackStatus, setFeedbackStatus] = useState({});
+  const [selectedIds, setSelectedIds] = useState({});
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+
+  useEffect(() => {
+    setSelectedIds({});
+  }, [activeTab, searchQuery, statusFilter, currentPage]);
 
   const handleFeedback = async (requestId, opinion) => {
     try {
@@ -97,6 +103,50 @@ export default function InstitutionTable({ activeTab }) {
     }
   };
 
+  const handleSelectAllChange = (checked, selectableRequests) => {
+    const newSelected = { ...selectedIds };
+    selectableRequests.forEach(req => {
+      if (checked) {
+        newSelected[req.id] = true;
+      } else {
+        delete newSelected[req.id];
+      }
+    });
+    setSelectedIds(newSelected);
+  };
+
+  const handleSelectRowChange = (id, checked) => {
+    setSelectedIds(prev => {
+      const next = { ...prev };
+      if (checked) {
+        next[id] = true;
+      } else {
+        delete next[id];
+      }
+      return next;
+    });
+  };
+
+  const handleBulkAction = async (statusName, actionFn) => {
+    const idsToProcess = Object.keys(selectedIds).filter(id => selectedIds[id]);
+    if (idsToProcess.length === 0) return;
+    
+    setBulkProcessing(true);
+    try {
+      await Promise.all(idsToProcess.map(id => actionFn(id)));
+      idsToProcess.forEach(id => {
+        setActionFeedback({ id, status: statusName });
+      });
+      setTimeout(() => setActionFeedback(null), 3000);
+      setSelectedIds({});
+    } catch (err) {
+      console.error(err);
+      alert('Bulk action failed: ' + err.message);
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
   const filteredRequests = useMemo(() => {
     return verificationRequests.filter((req) => {
       const name = (req.ownerName || req.owner || '').toLowerCase();
@@ -142,6 +192,18 @@ export default function InstitutionTable({ activeTab }) {
     return sortedRequests.slice(startIndex, startIndex + itemsPerPage);
   }, [sortedRequests, currentPage]);
 
+  const selectableRequests = useMemo(() => {
+    return paginatedRequests.filter(req => req.status === 'Pending' || req.status === 'Information Requested');
+  }, [paginatedRequests]);
+
+  const areAllSelected = useMemo(() => {
+    return selectableRequests.length > 0 && selectableRequests.every(req => selectedIds[req.id]);
+  }, [selectableRequests, selectedIds]);
+
+  const selectedCount = useMemo(() => {
+    return Object.keys(selectedIds).filter(id => selectedIds[id]).length;
+  }, [selectedIds]);
+
   const headerTitle = activeTab === 'pending' ? 'Pending Verification Requests' :
                       activeTab === 'approved' ? 'Approved Verifications' :
                       'Rejected Requests';
@@ -178,11 +240,58 @@ export default function InstitutionTable({ activeTab }) {
           )}
         </div>
       </div>
+
+      {selectedCount > 0 && (
+        <div className="bg-blue-500/10 border-b border-blue-500/20 px-5 py-3 flex items-center justify-between gap-4 animate-slide-down">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-slate-200">
+            <span className="flex h-5 w-5 items-center justify-center rounded bg-blue-600 text-[10px] text-white font-extrabold">
+              {selectedCount}
+            </span>
+            <span>requests selected for bulk operations</span>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => handleBulkAction('Approved', approveVerification)}
+              disabled={bulkProcessing}
+              variant="success"
+              className="py-1 px-3 text-xs font-extrabold"
+            >
+              {bulkProcessing ? 'Approving...' : 'Bulk Approve'}
+            </Button>
+            <Button
+              onClick={() => handleBulkAction('Rejected', rejectVerification)}
+              disabled={bulkProcessing}
+              variant="danger"
+              className="py-1 px-3 text-xs font-extrabold"
+            >
+              {bulkProcessing ? 'Rejecting...' : 'Bulk Reject'}
+            </Button>
+            <Button
+              onClick={() => setSelectedIds({})}
+              disabled={bulkProcessing}
+              variant="secondary"
+              className="py-1 px-3 text-xs font-extrabold"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
       
       <div className="overflow-x-auto">
         <table className="w-full min-w-[880px] text-left text-xs">
           <thead className="bg-slate-50/50 dark:bg-slate-900/20 text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 border-b border-slate-200/60 dark:border-slate-800/40">
             <tr>
+              {selectableRequests.length > 0 && (
+                <th className="px-5 py-4 w-12 text-center">
+                  <input
+                    type="checkbox"
+                    checked={areAllSelected}
+                    onChange={(e) => handleSelectAllChange(e.target.checked, selectableRequests)}
+                    className="h-4 w-4 rounded border-slate-300 dark:border-slate-800 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                </th>
+              )}
               <th className="px-5 py-4">Requester</th>
               <th className="px-5 py-4">Credential Type</th>
               <th className="px-5 py-4">Requested Date</th>
@@ -193,7 +302,7 @@ export default function InstitutionTable({ activeTab }) {
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800/40">
             {loading ? (
               <tr>
-                <td colSpan={5} className="px-5 py-12 text-center text-slate-400 dark:text-slate-550 font-bold uppercase tracking-wider">
+                <td colSpan={selectableRequests.length > 0 ? 6 : 5} className="px-5 py-12 text-center text-slate-400 dark:text-slate-550 font-bold uppercase tracking-wider">
                   <div className="flex items-center justify-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
                     <span>Loading requests...</span>
@@ -202,7 +311,7 @@ export default function InstitutionTable({ activeTab }) {
               </tr>
             ) : paginatedRequests.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-5 py-12 text-center text-slate-400 dark:text-slate-550 font-bold uppercase tracking-wider">
+                <td colSpan={selectableRequests.length > 0 ? 6 : 5} className="px-5 py-12 text-center text-slate-400 dark:text-slate-550 font-bold uppercase tracking-wider">
                   No verification requests found matching the active filters.
                 </td>
               </tr>
@@ -223,6 +332,20 @@ export default function InstitutionTable({ activeTab }) {
                 return (
                   <React.Fragment key={request.id}>
                     <tr className={`${highlightClass} transition-all duration-300`}>
+                      {selectableRequests.length > 0 && (
+                        <td className="px-5 py-4 w-12 text-center">
+                          {showActions ? (
+                            <input
+                              type="checkbox"
+                              checked={!!selectedIds[request.id]}
+                              onChange={(e) => handleSelectRowChange(request.id, e.target.checked)}
+                              className="h-4 w-4 rounded border-slate-300 dark:border-slate-800 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
+                          ) : (
+                            <div className="h-4 w-4 mx-auto bg-slate-100 dark:bg-slate-800/40 rounded border border-slate-200 dark:border-slate-850" title="Action completed" />
+                          )}
+                        </td>
+                      )}
                       <td className="px-5 py-4 font-bold text-slate-900 dark:text-white">
                         {request.ownerName || request.ownerEmail || request.owner || 'Anonymous User'}
                       </td>
@@ -285,7 +408,7 @@ export default function InstitutionTable({ activeTab }) {
                     </tr>
                     {isExpanded && (
                       <tr className="bg-slate-50/20 dark:bg-slate-950/10">
-                        <td colSpan={5} className="px-5 pb-5 pt-4 border-t border-slate-100 dark:border-slate-800/40 space-y-5">
+                        <td colSpan={selectableRequests.length > 0 ? 6 : 5} className="px-5 pb-5 pt-4 border-t border-slate-100 dark:border-slate-800/40 space-y-5">
                           {/* Details panel */}
                           <div className="text-xs space-y-2">
                             <p className="text-[10px] font-bold text-slate-550 dark:text-slate-400 uppercase tracking-wider">Request Details</p>
