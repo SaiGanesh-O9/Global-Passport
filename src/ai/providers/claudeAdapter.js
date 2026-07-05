@@ -33,8 +33,11 @@ ${serializedContext}`;
     });
 
     const data = await res.json();
+    if (!res.ok || !data.content || data.content.length === 0) {
+      throw new Error(data.error?.message || "Claude API returned error status or empty content.");
+    }
     return {
-      reply: data.content?.[0]?.text || "Claude returned empty message.",
+      reply: data.content[0].text,
       citations: []
     };
   } catch (err) {

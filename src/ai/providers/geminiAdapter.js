@@ -30,8 +30,11 @@ ${serializedContext}`;
     });
 
     const data = await res.json();
+    if (!res.ok || !data.candidates || data.candidates.length === 0) {
+      throw new Error(data.error?.message || "Gemini API returned error status or empty candidates.");
+    }
     return {
-      reply: data.candidates?.[0]?.content?.parts?.[0]?.text || "Gemini returned empty response.",
+      reply: data.candidates[0].content.parts[0].text,
       citations: []
     };
   } catch (err) {

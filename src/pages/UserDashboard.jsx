@@ -81,21 +81,26 @@ export default function UserDashboard() {
   
   // Vault filter tab state: 'Verified' | 'Pending' | 'Requested' | 'Rejected' | 'Expired'
   const [vaultFilter, setVaultFilter] = useState('Verified');
-  const [notifPrefs, setNotifPrefs] = useState(() => {
-    const saved = localStorage.getItem(`notif_prefs_${currentUser?.uid || 'default'}`);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    return {
-      delivery: { email: true, inApp: true, push: false },
-      events: { verification: true, credential: true, organization: true, admin: true, security: true, system: true },
-      frequency: 'Instant'
-    };
+  const [notifPrefs, setNotifPrefs] = useState({
+    delivery: { email: true, inApp: true, push: false },
+    events: { verification: true, credential: true, organization: true, admin: true, security: true, system: true },
+    frequency: 'Instant'
   });
+
+  useEffect(() => {
+    if (currentUser?.uid) {
+      const saved = localStorage.getItem(`notif_prefs_${currentUser.uid}`);
+      if (saved) {
+        try { setNotifPrefs(JSON.parse(saved)); } catch (e) {}
+      }
+    }
+  }, [currentUser]);
 
   const handleSavePrefs = (updated) => {
     setNotifPrefs(updated);
-    localStorage.setItem(`notif_prefs_${currentUser?.uid || 'default'}`, JSON.stringify(updated));
+    if (currentUser?.uid) {
+      localStorage.setItem(`notif_prefs_${currentUser.uid}`, JSON.stringify(updated));
+    }
   };
   const [selectedViewerDoc, setSelectedViewerDoc] = useState(null);
 

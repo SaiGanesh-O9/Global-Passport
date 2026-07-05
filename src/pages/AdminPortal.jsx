@@ -2,11 +2,13 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import { useDocuments } from '../hooks/useDocuments.js';
+import { globalCredentialCatalog } from '../context/initialState.js';
 import { useDocumentActions } from '../hooks/useDocumentActions.js';
 import Button from '../components/ui/Button.jsx';
 import Card from '../components/ui/Card.jsx';
 import ThemeToggle from '../components/ui/ThemeToggle.jsx';
 import UniversalDocumentViewer from '../components/dashboard/UniversalDocumentViewer.jsx';
+import AICopilot from '../components/ui/AICopilot.jsx';
 import {
   Users as UsersIcon,
   Building2,
@@ -1872,6 +1874,26 @@ export default function AdminPortal() {
                 <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Credential Catalog</h1>
                 <span className="text-xs text-slate-500 font-medium">Global Checklists</span>
               </div>
+
+              {/* Global Reusable Registry */}
+              <Card className="p-5 bg-white dark:bg-[#12131a] border border-slate-205 dark:border-slate-800/40">
+                <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2">Global Reusable Registry ({globalCredentialCatalog.length} Types)</h2>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold mb-4 leading-normal">
+                  Standardized, reusable credential structures shared across institutional templates to enable instant verification.
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  {globalCredentialCatalog.map((type, index) => (
+                    <div key={index} className="px-3 py-2 bg-slate-50 dark:bg-slate-900/40 border border-slate-200/65 dark:border-slate-800/50 rounded-xl text-[10px] font-bold text-slate-800 dark:text-slate-350">
+                      {type}
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <div className="border-t border-slate-200/50 dark:border-slate-800/40 pt-4">
+                <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-4">Active Institutional Templates</h2>
+              </div>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 {organizations.map(org => {
                   const services = (verificationServices || []).filter(s => s.organizationId === org.id);
@@ -2016,6 +2038,7 @@ export default function AdminPortal() {
           onClose={() => setSelectedViewerDoc(null)}
         />
       )}
+      <AICopilot />
     </div>
   );
 }

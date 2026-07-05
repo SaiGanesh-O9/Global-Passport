@@ -36,8 +36,13 @@ Always obey role permissions. Never speak about other users' data or admin setti
     });
 
     const data = await res.json();
+    
+    if (!res.ok || !data.choices || data.choices.length === 0) {
+      throw new Error(data.error?.message || "OpenAI API returned error status or empty choices.");
+    }
+
     return {
-      reply: data.choices?.[0]?.message?.content || "No response choices returned.",
+      reply: data.choices[0].message.content,
       citations: []
     };
   } catch (err) {

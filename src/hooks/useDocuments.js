@@ -96,6 +96,7 @@ export function useDocuments() {
     platformSettings: state.platformSettings || {},
     toasts: state.toasts || [],
     activities: state.activities || [],
+    notifications: state.notifications || [],
     metrics: {
       pending: pendingVerificationRequests.length,
       approved: approvedVerificationRequests.length,

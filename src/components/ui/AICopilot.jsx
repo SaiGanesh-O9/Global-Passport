@@ -143,7 +143,7 @@ export default function AICopilot() {
 
       {/* 2. Chat Panel Overlay */}
       {isOpen && (
-        <div className="fixed bottom-22 right-6 z-50 w-[380px] sm:w-[400px] h-[500px] flex flex-col bg-white dark:bg-[#12131a] border border-slate-200 dark:border-slate-800/60 rounded-2xl shadow-2xl overflow-hidden animate-slide-in transition-all duration-200">
+        <div className="fixed bottom-20 right-6 z-50 w-[380px] sm:w-[400px] h-[500px] flex flex-col bg-white dark:bg-[#12131a] border border-slate-205/60 dark:border-slate-800/60 rounded-2xl shadow-2xl overflow-hidden animate-slide-in transition-all duration-200">
           
           {/* Header */}
           <div className="bg-slate-50 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800/40 p-4 flex items-center justify-between">
