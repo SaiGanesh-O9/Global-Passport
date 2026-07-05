@@ -22,7 +22,8 @@ import {
   AlertTriangle,
   FileText,
   FileCheck,
-  ClipboardList
+  ClipboardList,
+  Sparkles
 } from 'lucide-react';
 
 const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg'];
@@ -58,6 +59,10 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
   const [error, setError] = useState('');
   const [hasStorageError, setHasStorageError] = useState(false);
 
+  // AI Checklist Suggestion states
+  const [aiSuggestion, setAiSuggestion] = useState('');
+  const [loadingAi, setLoadingAi] = useState(false);
+
   // Initialize and handle props updates
   useEffect(() => {
     if (isOpen) {
@@ -86,6 +91,36 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
       }
     }
   }, [isOpen, targetRequest, initialSelectedOrg, organizationProfiles, verificationServices]);
+
+  useEffect(() => {
+    if (selectedService && selectedOrg && isOpen) {
+      setLoadingAi(true);
+      setAiSuggestion('');
+      
+      const timer = setTimeout(() => {
+        let suggestion = '';
+        const orgType = selectedOrg.category || 'University';
+        const serviceName = selectedService.name;
+        
+        if (orgType === 'University') {
+          suggestion = `UniCrypt AI recommends uploading a clear, high-resolution scan of your Degree Certificate and complete Semester Transcripts. If your documents are in a language other than English, attaching a certified translation is highly recommended.`;
+        } else if (orgType === 'Employer') {
+          suggestion = `UniCrypt AI suggests uploading your official Experience Letter and the last 3 months of Payslips. Make sure your previous employer's corporate seal and HR contact details are clearly legible.`;
+        } else if (orgType === 'Bank') {
+          suggestion = `UniCrypt AI recommends uploading your official Admission Offer Letter, Passport identity pages, and Bank Account Statements for the last 6 months to ensure quick loan approval.`;
+        } else if (orgType === 'Government') {
+          suggestion = `UniCrypt AI suggests uploading your valid National Passport and Address Proof. Ensure that the name on both documents matches your registered profile spelling exactly.`;
+        } else {
+          suggestion = `UniCrypt AI suggests uploading your Professional Certificate along with your Candidate/Exam ID report. Automated parsing works best when files are in PDF format.`;
+        }
+        
+        setAiSuggestion(suggestion);
+        setLoadingAi(false);
+      }, 700);
+
+      return () => clearTimeout(timer);
+    }
+  }, [selectedService, selectedOrg, isOpen]);
 
   // Derived filter calculations
   const filteredOrgs = useMemo(() => {
@@ -464,6 +499,27 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
                       Instructions: "{selectedTemplate.instructions}"
                     </div>
                   )}
+
+                  {/* AI Suggestion Panel */}
+                  <div className="bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4 bg-[#12131a]/10 backdrop-blur space-y-2 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 blur-xl pointer-events-none"></div>
+                    <div className="flex items-center gap-2 relative z-10">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-lg bg-blue-600/10 text-blue-600 dark:text-blue-400">
+                        <Sparkles className="h-3 w-3 animate-pulse" />
+                      </span>
+                      <h4 className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-slate-400">AI Document Checklist Advisor</h4>
+                    </div>
+                    {loadingAi ? (
+                      <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold pt-1">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                        <span>AI is analyzing requirements...</span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-700 dark:text-slate-200 font-semibold leading-relaxed relative z-10">
+                        {aiSuggestion}
+                      </p>
+                    )}
+                  </div>
 
                   {/* Progress Indicator */}
                   <div className="space-y-1.5 border border-slate-200/50 dark:border-slate-800/40 rounded-xl p-3.5 bg-slate-55/50 dark:bg-slate-900/20">
