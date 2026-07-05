@@ -363,11 +363,16 @@ export default function UserDashboard() {
   const renderVaultView = () => {
     return (
       <div className="space-y-6">
-        <div>
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Credential Vault</h2>
-          <p className="text-[11px] text-slate-500 dark:text-slate-450 mt-1 font-semibold">
-            Upload once, and safely reuse your credentials for instant organization verifications.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 dark:border-slate-800/40 pb-4">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Credential Vault</h2>
+            <p className="text-[11px] text-slate-555 dark:text-slate-455 mt-1 font-semibold">
+              Upload once, and safely reuse your credentials for instant organization verifications.
+            </p>
+          </div>
+          <Button icon={Upload} onClick={() => setIsUploadModalOpen(true)} className="shrink-0">
+            Upload Credential
+          </Button>
         </div>
 
         {/* Vault tabs switcher */}
