@@ -12,7 +12,7 @@ export function classifyQuery(message) {
   const platformKeywords = [
     'missing', 'status', 'vault', 'verified', 'passport', 'transcript', 'essay',
     'degree', 'reject', 'approved', 'pending', 'reuse', 'my document', 'my request',
-    'request verification', 'uncrypt', 'veriflash', 'override', 'audit log'
+    'request verification', 'uncrypt', 'unicrypt', 'override', 'audit log'
   ];
 
   const externalKeywords = [
@@ -22,6 +22,24 @@ export function classifyQuery(message) {
 
   const matchesPlatform = platformKeywords.some(kw => msgLower.includes(kw));
   const matchesExternal = externalKeywords.some(kw => msgLower.includes(kw));
+
+  const isGeneralQuestion = !matchesPlatform && 
+    (msgLower.includes('weather') || 
+     msgLower.includes('sundar pichai') || 
+     msgLower.includes('who is') || 
+     msgLower.includes('latest') || 
+     msgLower.includes('news') ||
+     msgLower.includes('hello') ||
+     msgLower.includes('hi ') ||
+     msgLower.trim() === 'hi' ||
+     msgLower.trim() === 'hello');
+
+  if (isGeneralQuestion) {
+    return {
+      mode: 'GENERAL',
+      needsWebSearch: msgLower.includes('weather') || msgLower.includes('latest') || msgLower.includes('news')
+    };
+  }
 
   if (matchesPlatform && matchesExternal) {
     return {
@@ -44,9 +62,8 @@ export function classifyQuery(message) {
     };
   }
 
-  // Default to hybrid to be safe
   return {
-    mode: 'HYBRID',
+    mode: 'GENERAL',
     needsWebSearch: false
   };
 }
@@ -56,7 +73,9 @@ export function classifyQuery(message) {
  */
 export function getRouterInstructions(mode, needsWebSearch) {
   let instructions = `INTENT CLASSIFICATION MODE: ${mode}\n`;
-  if (mode === 'PLATFORM') {
+  if (mode === 'GENERAL') {
+    instructions += `- The user is asking a general conversational or external question (like weather, news, biography, generic definitions). Answer the question directly and conversational. DO NOT mention the UniCrypt platform, templates, checklists, student status, or document vault unless specifically asked by the user.\n`;
+  } else if (mode === 'PLATFORM') {
     instructions += `- The user is asking about UniCrypt platform records. Limit your response strictly to internal platform context data. Do not make up outside history.\n`;
   } else if (mode === 'EXTERNAL') {
     instructions += `- The user is asking a general knowledge question. Do not reference platform context or leak student details. Explain general terms clearly.\n`;

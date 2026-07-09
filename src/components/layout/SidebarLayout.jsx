@@ -184,7 +184,7 @@ export default function SidebarLayout({ children, navItems, subtitle, title }) {
               <Avatar name={userProfile?.name || currentUser.displayName || currentUser.email} size="md" />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                  {userProfile?.name || currentUser.displayName || 'VeriFlash User'}
+                  {userProfile?.name || currentUser.displayName || 'UniCrypt User'}
                 </p>
                 <p className="text-[10px] text-slate-450 dark:text-slate-500 font-semibold truncate leading-none mt-0.5">
                   {currentUser.email}

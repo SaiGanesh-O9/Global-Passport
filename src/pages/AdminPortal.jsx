@@ -184,7 +184,7 @@ export default function AdminPortal() {
     if (userForm.status === 'suspended' && editingUser.status !== 'suspended') {
       setConfirmAction({
         title: 'Suspend User Account',
-        message: `This user (${editingUser.email}) will lose all access to VeriFlash. Proceed?`,
+        message: `This user (${editingUser.email}) will lose all access to UniCrypt. Proceed?`,
         onConfirm: () => commitUserChanges(),
       });
       return;
@@ -663,7 +663,7 @@ export default function AdminPortal() {
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm dark:shadow-black/10 shadow-blue-500/20">
             <ShieldCheck className="h-5 w-5" />
           </span>
-          <span className="tracking-tight font-extrabold text-slate-900 dark:text-slate-100 dark:text-white text-sm">VeriFlash Admin</span>
+          <span className="tracking-tight font-extrabold text-slate-900 dark:text-slate-100 dark:text-white text-sm">UniCrypt Admin</span>
         </div>
         <div className="flex items-center gap-3">
           <div className="hidden lg:block text-right">
@@ -741,7 +741,7 @@ export default function AdminPortal() {
                 </p>
               </div>
             )}
-            <div>VeriFlash v1.2 Admin Console</div>
+            <div>UniCrypt v1.2 Admin Console</div>
           </div>
         </aside>
 

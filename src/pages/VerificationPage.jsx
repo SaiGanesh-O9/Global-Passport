@@ -152,7 +152,7 @@ export default function VerificationPage() {
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white">
               <FileCheck2 className="h-6 w-6" />
             </span>
-            VeriFlash
+            UniCrypt
           </div>
           <div className="flex items-center gap-3 mt-6">
             <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
@@ -213,7 +213,7 @@ export default function VerificationPage() {
                 </div>
                 <div className="border-t border-slate-200/50 dark:border-slate-800/40 pt-4 flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-450">
                   <CheckCircle2 className="h-4.5 w-4.5" />
-                  <span>✔ Verified by VeriFlash</span>
+                  <span>✔ Verified by UniCrypt</span>
                 </div>
               </div>
 
@@ -310,7 +310,7 @@ export default function VerificationPage() {
             </div>
             <h1 className="mt-6 text-3xl font-extrabold tracking-tight">Verified Credential</h1>
             <p className="mt-2 text-emerald-100 text-xs font-bold uppercase tracking-wider">
-              Verified through VeriFlash
+              Verified through UniCrypt
             </p>
           </div>
 

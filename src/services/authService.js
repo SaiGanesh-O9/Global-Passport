@@ -7,14 +7,14 @@ import {
 } from 'firebase/auth';
 import { auth } from '../firebase/firebase.js';
 
-const EMAIL_CONFIRM_KEY = 'veriflash_email_for_signin';
+const EMAIL_CONFIRM_KEY = 'unicrypt_email_for_signin';
 
 export async function sendMagicLink(email) {
   // Use localhost origin for local testing; otherwise use production hosted URL
   const origin =
     window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       ? window.location.origin
-      : 'https://veriflash-f7655.web.app';
+      : 'https://verify-once.vercel.app';
 
   const actionCodeSettings = {
     // Redirect back to /login to complete sign-in

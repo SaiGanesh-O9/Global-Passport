@@ -78,28 +78,45 @@ export async function askAI(message, parameters = {}) {
 
   // 10. Synthesize replies, injecting agent contributions if necessary
   let finalReply = result.reply;
-  if (coordinatedAnswers && classification.mode === 'HYBRID') {
+  
+  if (classification.needsWebSearch) {
+    finalReply = "I don't have live internet access in this mode.";
+  } else if (coordinatedAnswers && classification.mode === 'HYBRID') {
     finalReply = `${finalReply}\n\n*Agent Coordination Insight: ${coordinatedAnswers.summary}*`;
   }
 
-  // 11. Add citations and confidence ratings
-  const citations = result.citations || [];
-  if (classification.mode === 'PLATFORM' || toolRun) {
-    citations.push({ title: "UniCrypt Database / Vault", url: "https://unicrypt.localhost/vault" });
-  } else if (classification.mode === 'EXTERNAL') {
-    citations.push({ title: "Official University Requirements Guidelines", url: "https://unicrypt.localhost/guidelines" });
-  } else {
-    citations.push({ title: "UniCrypt Verification Handbook", url: "https://unicrypt.localhost/handbook" });
-  }
+  // 11. Add citations and confidence ratings only when relevant
+  let citations = [];
+  let confidence = null;
+  let intent = 'general';
 
-  const confidence = classification.mode === 'PLATFORM' ? 98 : classification.mode === 'EXTERNAL' ? 88 : 92;
+  if (classification.needsWebSearch) {
+    citations = [];
+    confidence = null;
+    intent = 'general';
+  } else if (classification.mode === 'PLATFORM' || toolRun) {
+    citations = result.citations || [];
+    citations.push({ title: "UniCrypt Database / Vault", url: "https://unicrypt.localhost/vault" });
+    confidence = 98;
+    intent = 'platform';
+  } else if (classification.mode === 'EXTERNAL') {
+    citations = result.citations || [];
+    citations.push({ title: "Official University Requirements Guidelines", url: "https://unicrypt.localhost/guidelines" });
+    confidence = 88;
+    intent = 'external';
+  } else if (classification.mode === 'HYBRID') {
+    citations = result.citations || [];
+    citations.push({ title: "UniCrypt Verification Handbook", url: "https://unicrypt.localhost/handbook" });
+    confidence = 92;
+    intent = 'hybrid';
+  }
 
   // Cache AI response in memory
   saveSessionMessage(sessionId, { sender: 'ai', text: finalReply });
 
   return {
     reply: finalReply,
-    intent: classification.mode.toLowerCase(),
+    intent: intent,
     confidence: confidence,
     citations: citations,
     action: detectedAction

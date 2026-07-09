@@ -152,7 +152,7 @@ export default function AICopilot() {
                 <Sparkles className="h-4 w-4" />
               </span>
               <div>
-                <h3 className="text-xs font-bold text-slate-900 dark:text-white leading-none">VeriFlash Copilot</h3>
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white leading-none">UniCrypt Copilot</h3>
                 <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1 block">Active Assistant Layer</span>
               </div>
             </div>
@@ -188,7 +188,7 @@ export default function AICopilot() {
                 <div key={msg.id} className={`flex flex-col ${isAi ? 'items-start' : 'items-end'} space-y-1`}>
                   <div className="flex items-center gap-1.5 text-[9px] text-slate-400 dark:text-slate-500 font-bold px-1.5">
                     {isAi && intentIcon}
-                    <span>{isAi ? 'VeriFlash AI' : 'You'}</span>
+                    <span>{isAi ? 'UniCrypt AI' : 'You'}</span>
                     <span>•</span>
                     <span>{msg.timestamp}</span>
                   </div>
@@ -300,7 +300,7 @@ export default function AICopilot() {
             {loading && (
               <div className="flex flex-col items-start space-y-1">
                 <div className="text-[9px] text-slate-400 dark:text-slate-500 font-bold px-1.5">
-                  VeriFlash AI is analyzing...
+                  UniCrypt AI is analyzing...
                 </div>
                 <div className="bg-white dark:bg-[#181922] border border-slate-205/60 dark:border-slate-850 rounded-2xl px-4 py-2.5 text-xs text-slate-400 flex items-center gap-1.5">
                   <span className="h-1.5 w-1.5 rounded-full bg-slate-400 animate-bounce"></span>

@@ -88,5 +88,5 @@ function simulateMockResponse(message, context) {
     return "Here are today's administrative overrides: Admin overridden request Approved (Reason: 'Verified official certificate domain copy matches').";
   }
 
-  return `Hello! I am the UniCrypt ${context.role.replace('_', ' ')} AI Assistant. Let me know how I can help you with your digital credentials or compliance search queries.`;
+  return "I'm here to assist you with your digital credentials, verification requests, and compliance queries. Let me know how I can help.";
 }

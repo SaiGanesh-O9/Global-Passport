@@ -28,7 +28,7 @@ export default function FeatureGrid() {
     <section className="bg-slate-50 dark:bg-[#0c0d13] text-slate-800 dark:text-slate-200 px-5 py-20 sm:px-6 lg:px-8 transition-theme" id="features">
       <div className="mx-auto max-w-7xl">
         <SectionHeader eyebrow="Features" title="Trust that travels with the user">
-          VeriFlash makes verifying and sharing secure credentials frictionless, maintaining strict data privacy and cryptographic assurance.
+          UniCrypt makes verifying and sharing secure credentials frictionless, maintaining strict data privacy and cryptographic assurance.
         </SectionHeader>
 
         <div className="mt-12 grid gap-6 md:grid-cols-3">

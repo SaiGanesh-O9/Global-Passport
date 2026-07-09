@@ -83,7 +83,7 @@ function NetworkCard({ children, highlighted = false }) {
   if (highlighted) {
     return (
       <div className="rounded-xl border border-blue-500/20 bg-blue-600 dark:bg-blue-600 p-5 text-center text-white shadow-xl dark:shadow-black/30">
-        <p className="text-xl font-extrabold tracking-wider">VERIFLASH</p>
+        <p className="text-xl font-extrabold tracking-wider">UNICRYPT</p>
         <p className="mt-1.5 text-xs font-bold text-blue-100/90 uppercase tracking-wide">
           Universal Verification Layer
         </p>
@@ -131,7 +131,7 @@ function DifferenceBanner() {
       <div className="mt-3 space-y-2 text-xs leading-relaxed text-blue-50 dark:text-slate-300 font-semibold">
         <p>Existing platforms primarily focus on storing or issuing credentials.</p>
         <p>
-          VeriFlash focuses on reusable verification, allowing trusted
+          UniCrypt focuses on reusable verification, allowing trusted
           organizations to verify once and enabling authorized organizations to
           reuse that verification securely through one interoperable network.
         </p>
@@ -148,7 +148,7 @@ export default function EcosystemSection() {
           eyebrow="Built to connect"
           title="Trusted Verification Network"
         >
-          VeriFlash is not a replacement for existing credential platforms. It is
+          UniCrypt is not a replacement for existing credential platforms. It is
           built to act as a universal verification and interoperability layer
           that can connect trusted institutions, repositories,
           employers, banks and government systems into one seamless verification
@@ -164,7 +164,7 @@ export default function EcosystemSection() {
               Designed for Integration
             </h3>
             <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-500 dark:text-slate-400 font-medium">
-              VeriFlash is designed for integration with trusted organizations
+              UniCrypt is designed for integration with trusted organizations
               and existing credential ecosystems through secure APIs and
               standardized verification workflows. It can help organizations
               eliminate repeated verification while preserving the authority of
