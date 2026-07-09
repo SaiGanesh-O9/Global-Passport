@@ -83,8 +83,9 @@ export function compileAIContext(currentUser, userProfile, state, currentScreen)
  * for use in LLM system prompt setups.
  */
 export function serializeContextToMarkdown(context) {
+  if (!context) return "";
   let md = `=== SYSTEM CONTEXT ===\n`;
-  md += `- **Current User**: ${context.profile.name} (${context.profile.email})\n`;
+  md += `- **Current User**: ${context.profile?.name || 'Anonymous'} (${context.profile?.email || 'N/A'})\n`;
   md += `- **Role/Permissions**: ${context.role.toUpperCase()}\n`;
   md += `- **Active Screen Layout**: ${context.currentScreen || 'Dashboard'}\n\n`;
 
