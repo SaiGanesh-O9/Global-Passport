@@ -9,6 +9,7 @@ import Card from '../components/ui/Card.jsx';
 import ThemeToggle from '../components/ui/ThemeToggle.jsx';
 import UniversalDocumentViewer from '../components/dashboard/UniversalDocumentViewer.jsx';
 import AICopilot from '../components/ui/AICopilot.jsx';
+import AIPreferences from '../components/ui/AIPreferences.jsx';
 import {
   Users as UsersIcon,
   Building2,
@@ -2015,6 +2016,10 @@ export default function AdminPortal() {
                   </div>
                 </form>
               </Card>
+
+              <div className="mt-6">
+                <AIPreferences />
+              </div>
             </div>
           )}
           {/* TAB 8: CREDENTIAL CATALOG */}

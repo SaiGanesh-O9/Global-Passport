@@ -9,6 +9,7 @@ import Button from '../components/ui/Button.jsx';
 import Card from '../components/ui/Card.jsx';
 import UniversalDocumentViewer from '../components/dashboard/UniversalDocumentViewer.jsx';
 import { FileText, LayoutDashboard, Settings, Upload, Mail, Search, Building2, CheckCircle2, Globe, ChevronRight, Shield, Activity, User, Clock, AlertCircle, FileCheck, Download, Eye } from 'lucide-react';
+import AIPreferences from '../components/ui/AIPreferences.jsx';
 
 export const userNavItems = [
   { label: 'Dashboard', to: '/dashboard#dashboard', icon: LayoutDashboard },
@@ -608,6 +609,10 @@ export default function UserDashboard() {
               </select>
             </div>
           </Card>
+        </div>
+
+        <div className="pt-4 max-w-4xl">
+          <AIPreferences />
         </div>
       </div>
     );

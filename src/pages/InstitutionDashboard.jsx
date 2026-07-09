@@ -11,6 +11,7 @@ import Input from '../components/ui/Input.jsx';
 import Textarea from '../components/ui/Textarea.jsx';
 import Select from '../components/ui/Select.jsx';
 import RequestDocumentModal from '../components/dashboard/RequestDocumentModal.jsx';
+import AIPreferences from '../components/ui/AIPreferences.jsx';
 import {
   BarChart3,
   BadgeCheck,
@@ -753,6 +754,10 @@ export default function InstitutionDashboard() {
               </select>
             </div>
           </Card>
+        </div>
+
+        <div className="pt-4 max-w-4xl">
+          <AIPreferences />
         </div>
       </div>
     );

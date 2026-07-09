@@ -93,6 +93,9 @@ export default function AICopilot() {
         intent: response.intent || 'general',
         confidence: response.confidence || 90,
         citations: response.citations || [],
+        provider: response.provider || 'none',
+        model: response.model || 'none',
+        latency: response.latency || 0,
         timestamp: new Date().toLocaleTimeString(),
       };
 
@@ -224,7 +227,7 @@ export default function AICopilot() {
                     })}
 
                     {/* Citations display */}
-                    {isAi && msg.citations && msg.citations.length > 0 && (
+                    {isAi && msg.intent && msg.intent !== 'general' && msg.intent !== 'GENERAL' && msg.citations && msg.citations.length > 0 && (
                       <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/40 space-y-1.5">
                         <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide block">Sources</span>
                         <div className="flex flex-wrap gap-1">
@@ -245,7 +248,7 @@ export default function AICopilot() {
                     )}
 
                     {/* Action Execution Banner */}
-                    {isAi && msg.intent && msg.intent !== 'general' && (
+                    {isAi && msg.intent && msg.intent !== 'general' && msg.intent !== 'GENERAL' && msg.intent !== 'live' && msg.intent !== 'LIVE' && (
                       <div className="mt-2 pt-1 border-t border-slate-100 dark:border-slate-800/40 flex justify-between items-center text-[9px] font-bold text-indigo-650 dark:text-indigo-400 uppercase tracking-wide">
                         <span className="flex items-center gap-1">
                           <Database className="h-2.5 w-2.5" />
@@ -253,6 +256,23 @@ export default function AICopilot() {
                         </span>
                         {msg.confidence && (
                           <span>Confidence: {msg.confidence}%</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Live Provider / Model Badge */}
+                    {isAi && msg.provider && msg.provider !== 'none' && (
+                      <div className="mt-2 pt-1 border-t border-slate-100 dark:border-slate-850 flex flex-wrap gap-2 items-center text-[8px] font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wide">
+                        <span className="bg-slate-100 dark:bg-slate-800/40 px-1.5 py-0.5 rounded">
+                          Provider: {msg.provider}
+                        </span>
+                        <span className="bg-slate-100 dark:bg-slate-800/40 px-1.5 py-0.5 rounded">
+                          Model: {msg.model}
+                        </span>
+                        {msg.latency > 0 && (
+                          <span className="bg-slate-100 dark:bg-slate-800/40 px-1.5 py-0.5 rounded">
+                            {msg.latency}ms
+                          </span>
                         )}
                       </div>
                     )}

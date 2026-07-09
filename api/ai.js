@@ -1,69 +1,141 @@
-/**
- * Vercel Serverless Function: /api/ai
- * Handles secure server-side communications with OpenAI API.
- * Keeps API Key hidden from the client browser.
- */
+import { classifyQuery, getRouterInstructions } from './ai/router.js';
+import { compileAIContext, serializeContextToMarkdown } from './ai/context.js';
+import { executePlatformTool } from './ai/tools.js';
+import { getPrunedHistory } from './ai/memory.js';
+import { performLiveSearch } from './ai/search.js';
+import { getResponseWithFailover } from './ai/providers.js';
+import {
+  SYSTEM_INSTRUCTIONS,
+  studentPrompt,
+  organizationPrompt,
+  adminPrompt,
+  toolPrompt
+} from './ai/prompts.js';
 
+/**
+ * Main Serverless Gate Function for UniCrypt AI Platform.
+ * Executes query routing, context boundaries, live tool lookups, and auto-failovers.
+ */
 export default async function handler(req, res) {
-  // Enforce POST method
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { messages, model = 'gpt-4o-mini' } = req.body || {};
+  const {
+    message,
+    history = [],
+    currentUser = null,
+    userProfile = null,
+    state = null,
+    currentScreen = '#dashboard',
+    settings = {}
+  } = req.body || {};
 
-  if (!messages || !Array.isArray(messages)) {
-    return res.status(400).json({ error: 'Invalid or missing messages payload' });
+  if (!message) {
+    return res.status(400).json({ error: 'Missing user message prompt' });
   }
 
-  const apiKey = process.env.VITE_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+  // 1. Run intent detection
+  const classification = classifyQuery(message);
 
-  if (!apiKey) {
-    console.error("Vercel Serverless Function: OpenAI API Key is undefined or empty!");
-    return res.status(500).json({ error: 'OpenAI API Key is not configured on the Vercel server. Please set VITE_OPENAI_API_KEY.' });
-  } else {
-    console.log("Vercel Serverless Function: API Key is present, length:", apiKey.length);
-  }
+  let context = null;
+  let toolRun = null;
+  let toolContextString = '';
+  let systemPrompt = SYSTEM_INSTRUCTIONS;
+  let liveSearchString = '';
+  let liveSearchCitation = null;
 
-  let attempts = 0;
-  const maxAttempts = 3;
-  let lastError = null;
-
-  while (attempts < maxAttempts) {
-    attempts++;
+  // 2. Fetch live weather or news search if toggle is enabled & matches mode
+  const isLiveSearchEnabled = settings.liveSearch !== false; // default true
+  if (isLiveSearchEnabled && classification.needsWebSearch) {
     try {
-      console.log(`Serverless AI Call (Attempt ${attempts}/${maxAttempts})...`);
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model,
-          messages
-        })
-      });
-
-      const data = await response.json();
-      console.log("OpenAI Status:", response.status);
-      console.log("OpenAI Raw Response Payload:", JSON.stringify(data));
-
-      if (!response.ok || data.error) {
-        const errorMsg = data.error?.message || JSON.stringify(data.error) || "OpenAI API returned error status";
-        console.error("OpenAI API Error payload:", errorMsg);
-        return res.status(response.status).json({ error: errorMsg });
+      const searchResult = await performLiveSearch(message);
+      if (searchResult && searchResult.success) {
+        liveSearchString = `\n[Live Search Context Data (Source: ${searchResult.source})]\nSearch Result: ${searchResult.summary}\nAnswer utilizing this live data.`;
+        liveSearchCitation = { title: searchResult.source, url: searchResult.url };
+      } else {
+        liveSearchString = `\n[Live weather/news search is currently unavailable. State clearly that current live information could not be retrieved.]`;
       }
-
-      return res.status(200).json(data);
-    } catch (error) {
-      console.error(`Attempt ${attempts} failed:`, error.message);
-      lastError = error;
-      if (attempts < maxAttempts) {
-        await new Promise(r => setTimeout(r, attempts * 500));
-      }
+    } catch (e) {
+      console.warn("Live search retrieval failed:", e.message);
     }
   }
 
-  return res.status(502).json({ error: `Bad Gateway: ${lastError.message}` });
+  // 3. Assemble prompt context based on Intent Mode
+  const isPlatformContextEnabled = settings.platformContext !== 'Disabled'; // default Automatic/Always Ask/Automatic
+  const shouldCompileContext = isPlatformContextEnabled && (classification.mode === 'PLATFORM' || classification.mode === 'HYBRID');
+
+  if (shouldCompileContext) {
+    // Compile and filter based on strict role authorization boundaries
+    context = compileAIContext(currentUser, userProfile, state, currentScreen);
+    
+    // Evaluate tools
+    toolRun = executePlatformTool(message, context);
+    if (toolRun) {
+      toolContextString = `\n[Executed Platform Tool: ${toolRun.toolName}]\nTool Output: ${JSON.stringify(toolRun.result)}`;
+    }
+
+    // Role prompt determination
+    let roleInstructions = studentPrompt;
+    if (context.role === 'organization') roleInstructions = organizationPrompt;
+    if (context.role === 'super_admin') roleInstructions = adminPrompt;
+
+    const serialized = serializeContextToMarkdown(context);
+    const routerInfo = getRouterInstructions(classification.mode, classification.needsWebSearch);
+
+    systemPrompt = `${SYSTEM_INSTRUCTIONS}
+${roleInstructions}
+${routerInfo}
+${toolPrompt}
+=== PLATFORM CONTEXT DATA ===
+${serialized}
+${toolContextString}
+${liveSearchString}`;
+  } else {
+    // General or Live Mode - Bypass context compilation to protect resources & privacy
+    const routerInfo = getRouterInstructions(classification.mode, classification.needsWebSearch);
+    systemPrompt = `${SYSTEM_INSTRUCTIONS}
+${routerInfo}
+${liveSearchString}`;
+  }
+
+  // 4. Memory History Integration
+  const isMemoryEnabled = settings.conversationMemory !== false; // default true
+  const prunedHistory = isMemoryEnabled ? getPrunedHistory(history) : [];
+
+  const messagesPayload = [
+    { role: 'system', content: systemPrompt },
+    ...prunedHistory,
+    { role: 'user', content: message }
+  ];
+
+  // 5. Query LLM via Provider Failover Manager
+  const providerPref = settings.defaultProvider || 'auto';
+  const modelPref = settings.defaultModel || '';
+  const stylePref = settings.responseStyle || 'balanced';
+
+  const result = await getResponseWithFailover(messagesPayload, providerPref, modelPref, stylePref);
+
+  // 6. Synthesize reply and citations
+  let citations = [];
+  if (liveSearchCitation) citations.push(liveSearchCitation);
+
+  // Expose sources only if internal platform details were used
+  if (shouldCompileContext && context) {
+    citations.push({ title: "UniCrypt Database / Vault", url: "https://unicrypt.localhost/vault" });
+  }
+
+  // Response Formatter
+  return res.status(200).json({
+    success: result.success,
+    reply: result.reply,
+    provider: result.provider,
+    model: result.model,
+    usage: result.usage,
+    latency: result.latency,
+    citations: citations,
+    confidence: result.confidence,
+    intent: classification.mode,
+    failoverLogs: result.failoverLogs
+  });
 }
