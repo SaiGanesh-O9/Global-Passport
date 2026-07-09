@@ -1,17 +1,6 @@
 import { serializeContextToMarkdown } from '../context/contextEngine.js';
 
 export async function askOpenAI(message, context, routerInfo) {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-
-  if (!apiKey) {
-    return {
-      reply: simulateMockResponse(message, context),
-      citations: [
-        { title: "UniCrypt Local Core", url: "https://unicrypt.localhost" }
-      ]
-    };
-  }
-
   try {
     const serializedContext = serializeContextToMarkdown(context);
     const systemPrompt = `You are the UniCrypt Role-Aware AI Assistant.
@@ -20,14 +9,12 @@ Use the following structured platform context data to answer platform-specific q
 ${serializedContext}
 Always obey role permissions. Never speak about other users' data or admin settings.`;
 
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    const res = await fetch("/api/ai", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: message }
@@ -38,7 +25,7 @@ Always obey role permissions. Never speak about other users' data or admin setti
     const data = await res.json();
     
     if (!res.ok || !data.choices || data.choices.length === 0) {
-      throw new Error(data.error?.message || "OpenAI API returned error status or empty choices.");
+      throw new Error(data.error?.message || data.error || "Serverless AI function returned error.");
     }
 
     return {
@@ -46,7 +33,7 @@ Always obey role permissions. Never speak about other users' data or admin setti
       citations: []
     };
   } catch (err) {
-    console.warn("OpenAI API call failed, falling back to local simulation:", err.message);
+    console.warn("Serverless AI call failed, falling back to local simulation:", err.message);
     return {
       reply: simulateMockResponse(message, context),
       citations: []
