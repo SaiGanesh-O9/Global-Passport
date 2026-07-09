@@ -19,8 +19,10 @@ export default async function handler(req, res) {
   const apiKey = process.env.VITE_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
-    console.error("Vercel Serverless Function: Missing OpenAI API Key");
-    return res.status(500).json({ error: 'OpenAI API Key is not configured on the server.' });
+    console.error("Vercel Serverless Function: OpenAI API Key is undefined or empty!");
+    return res.status(500).json({ error: 'OpenAI API Key is not configured on the Vercel server. Please set VITE_OPENAI_API_KEY.' });
+  } else {
+    console.log("Vercel Serverless Function: API Key is present, length:", apiKey.length);
   }
 
   let attempts = 0;
@@ -44,10 +46,13 @@ export default async function handler(req, res) {
       });
 
       const data = await response.json();
-      console.log("OpenAI Server Status:", response.status);
+      console.log("OpenAI Status:", response.status);
+      console.log("OpenAI Raw Response Payload:", JSON.stringify(data));
 
       if (!response.ok || data.error) {
-        throw new Error(data.error?.message || "OpenAI API returned error status");
+        const errorMsg = data.error?.message || JSON.stringify(data.error) || "OpenAI API returned error status";
+        console.error("OpenAI API Error payload:", errorMsg);
+        return res.status(response.status).json({ error: errorMsg });
       }
 
       return res.status(200).json(data);

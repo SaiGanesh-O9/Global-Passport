@@ -25,7 +25,8 @@ Always obey role permissions. Never speak about other users' data or admin setti
     const data = await res.json();
     
     if (!res.ok || !data.choices || data.choices.length === 0) {
-      throw new Error(data.error?.message || data.error || "Serverless AI function returned error.");
+      const errMsg = data.error?.message || data.error || `Server returned status code ${res.status}`;
+      throw new Error(errMsg);
     }
 
     return {
@@ -33,9 +34,22 @@ Always obey role permissions. Never speak about other users' data or admin setti
       citations: []
     };
   } catch (err) {
-    console.warn("Serverless AI call failed, falling back to local simulation:", err.message);
+    console.error("Serverless AI call failed:", err.message);
+    
+    const isNetworkOrConnectionError = err.message.includes('Failed to fetch') || 
+                                       err.message.includes('NetworkError') || 
+                                       err.message.includes('Failed to communicate');
+    
+    if (isNetworkOrConnectionError) {
+      console.warn("Local mock simulation fallback triggered.");
+      return {
+        reply: simulateMockResponse(message, context),
+        citations: []
+      };
+    }
+
     return {
-      reply: simulateMockResponse(message, context),
+      reply: `⚠️ **AI Service Error**: ${err.message || "Failed to communicate with AI gateway."}`,
       citations: []
     };
   }
@@ -65,6 +79,18 @@ function simulateMockResponse(message, context) {
       const count = context.verificationRequests.length;
       return `You have **${count} pending request(s)** awaiting review. John Doe's transcript is submitted and looks consistent.`;
     }
+  }
+
+  if (msgLower.includes('calculus')) {
+    return "Calculus is a branch of mathematics focused on limits, functions, derivatives, integrals, and infinite series. It has two main branches: differential calculus (concerning rates of change and slopes of curves) and integral calculus (concerning accumulation of quantities and the areas under curves).";
+  }
+
+  if (msgLower.includes('quicksort')) {
+    return "Here is a Python implementation of the Quicksort algorithm:\n\n```python\ndef quicksort(arr):\n    if len(arr) <= 1:\n        return arr\n    pivot = arr[len(arr) // 2]\n    left = [x for x in arr if x < pivot]\n    middle = [x for x in arr if x == pivot]\n    right = [x for x in arr if x > pivot]\n    return quicksort(left) + middle + quicksort(right)\n```";
+  }
+
+  if (msgLower.includes('google')) {
+    return "Google was founded on September 4, 1998, by Larry Page and Sergey Brin while they were Ph.D. students at Stanford University in California.";
   }
 
   if (msgLower.includes('blockchain')) {
