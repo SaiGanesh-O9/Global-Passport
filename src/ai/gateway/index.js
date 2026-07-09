@@ -21,12 +21,12 @@ import { ADMIN_ASSISTANT_PROMPT } from '../prompts/adminPrompt.js';
 export async function askAI(message, parameters = {}) {
   const { currentUser, userProfile, state, currentScreen, sessionId = 'default' } = parameters;
 
-  // 1. Compile centralized and filtered context payload
-  const context = compileAIContext(currentUser, userProfile, state, currentScreen);
+  // 1. Classify query intent first
+  const classification = classifyQuery(message);
 
   // 2. Safety constraint blocker (prevents modifying records directly)
   const isDestructiveRequest = /(approve|reject|delete|override|remove|clear request)/i.test(message) &&
-                              !(/show|list|view/i.test(message));
+                               !(/show|list|view/i.test(message));
   if (isDestructiveRequest) {
     return {
       reply: "⚠️ **Safety Constraint**: UniCrypt AI is restricted to read-only assistance. Database modifications (approving, rejecting, or overriding requests) must be executed manually using the dashboard buttons.",
@@ -40,31 +40,53 @@ export async function askAI(message, parameters = {}) {
   const history = getSessionHistory(sessionId);
   saveSessionMessage(sessionId, { sender: 'user', text: message });
 
-  // 4. Tool Router (Function calling check)
-  const toolRun = executePlatformTool(message, context);
+  let context = null;
+  let toolRun = null;
   let toolContextString = '';
-  if (toolRun) {
-    toolContextString = `\n[Executed Platform Tool: ${toolRun.toolName}]\nTool Output: ${JSON.stringify(toolRun.result)}`;
-  }
+  let detectedAction = null;
+  let systemInstructions = '';
+  let coordinatedAnswers = null;
 
-  // 5. Intent routing classification (Mode 1 vs Mode 2 vs Hybrid)
-  const classification = classifyQuery(message);
   const routerInfo = getRouterInstructions(classification.mode, classification.needsWebSearch);
 
-  // 6. Platform Action detection (UI triggers)
-  const detectedAction = detectPlatformAction(message, context.role);
+  if (classification.mode === 'GENERAL') {
+    // Mode 1: General AI - Do not call compileAIContext or inject platform context
+    systemInstructions = `You are UniCrypt AI.
+You are a helpful conversational assistant.
+You answer general questions naturally.
+When users ask about UniCrypt, use platform context to provide personalized answers.
+Never inject platform information into unrelated conversations.
+\n${routerInfo}`;
+  } else {
+    // Mode 2 or 3: Platform or Hybrid - Compile Firestore context & evaluate role permissions
+    context = compileAIContext(currentUser, userProfile, state, currentScreen);
+    
+    // Tool Router (Function calling check)
+    toolRun = executePlatformTool(message, context);
+    if (toolRun) {
+      toolContextString = `\n[Executed Platform Tool: ${toolRun.toolName}]\nTool Output: ${JSON.stringify(toolRun.result)}`;
+    }
 
-  // 7. Select correct system prompt based on user role
-  let rolePrompt = USER_ASSISTANT_PROMPT;
-  if (context.role === 'organization') rolePrompt = ORGANIZATION_ASSISTANT_PROMPT;
-  if (context.role === 'super_admin') rolePrompt = ADMIN_ASSISTANT_PROMPT;
+    // Platform Action detection (UI triggers)
+    detectedAction = detectPlatformAction(message, context ? context.role : null);
 
-  const systemInstructions = `${SYSTEM_INSTRUCTIONS}\n${rolePrompt}\n${routerInfo}${toolContextString}`;
+    // Select correct system prompt based on user role
+    let rolePrompt = USER_ASSISTANT_PROMPT;
+    if (context && context.role === 'organization') rolePrompt = ORGANIZATION_ASSISTANT_PROMPT;
+    if (context && context.role === 'super_admin') rolePrompt = ADMIN_ASSISTANT_PROMPT;
 
-  // 8. Multi-agent Coordinator simulation (Coordinates Agents internally)
-  const coordinatedAnswers = simulateMultiAgentCoordination(message, context, classification.mode);
+    systemInstructions = `You are UniCrypt AI.
+You are a helpful conversational assistant.
+You answer general questions naturally.
+When users ask about UniCrypt, use platform context to provide personalized answers.
+Never inject platform information into unrelated conversations.
+\n${SYSTEM_INSTRUCTIONS}\n${rolePrompt}\n${routerInfo}${toolContextString}`;
 
-  // 9. Invoke default Provider Adapter (OpenAI)
+    // Multi-agent Coordinator simulation
+    coordinatedAnswers = simulateMultiAgentCoordination(message, context, classification.mode);
+  }
+
+  // 4. Invoke default Provider Adapter (OpenAI)
   let result;
   const activeProvider = import.meta.env.VITE_AI_PROVIDER || 'openai';
 

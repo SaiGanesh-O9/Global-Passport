@@ -10,41 +10,33 @@ export function classifyQuery(message) {
 
   // Heuristic keywords lists
   const platformKeywords = [
-    'missing', 'status', 'vault', 'verified', 'passport', 'transcript', 'essay',
-    'degree', 'reject', 'approved', 'pending', 'reuse', 'my document', 'my request',
-    'request verification', 'uncrypt', 'unicrypt', 'override', 'audit log'
+    'missing', 'vault', 'pending', 'verified', 'passport', 'transcript', 'essay',
+    'degree', 'reject', 'approved', 'override', 'audit', 'log', 'history',
+    'notification', 'credential', 'document', 'my request', 'my file', 'my status',
+    'unicrypt', 'uncrypt'
   ];
 
-  const externalKeywords = [
-    'what is', 'explain', 'how does', 'definition', 'iso', 'blockchain',
-    'difference between', 'study in', 'apostille', 'regulations', 'compliance'
+  const hybridKeywords = [
+    'apply', 'visa', 'admission', 'university', 'college', 'iowa state', 
+    'central missouri', 'missouri state', 'arizona state', 'texas at dall', 
+    'northeastern', 'stanford', 'oxford', 'melbourne', 'singapore', 'requirement'
   ];
 
   const matchesPlatform = platformKeywords.some(kw => msgLower.includes(kw));
-  const matchesExternal = externalKeywords.some(kw => msgLower.includes(kw));
+  const matchesHybrid = hybridKeywords.some(kw => msgLower.includes(kw));
 
-  const isGeneralQuestion = !matchesPlatform && 
-    (msgLower.includes('weather') || 
-     msgLower.includes('sundar pichai') || 
-     msgLower.includes('who is') || 
-     msgLower.includes('latest') || 
-     msgLower.includes('news') ||
-     msgLower.includes('hello') ||
-     msgLower.includes('hi ') ||
-     msgLower.trim() === 'hi' ||
-     msgLower.trim() === 'hello');
-
-  if (isGeneralQuestion) {
+  // Determine mode
+  if (matchesHybrid && matchesPlatform) {
     return {
-      mode: 'GENERAL',
-      needsWebSearch: msgLower.includes('weather') || msgLower.includes('latest') || msgLower.includes('news')
+      mode: 'HYBRID',
+      needsWebSearch: msgLower.includes('latest') || msgLower.includes('weather') || msgLower.includes('news')
     };
   }
 
-  if (matchesPlatform && matchesExternal) {
+  if (matchesHybrid) {
     return {
       mode: 'HYBRID',
-      needsWebSearch: msgLower.includes('latest') || msgLower.includes('regulation') || msgLower.includes('rules') || msgLower.includes('requirements')
+      needsWebSearch: msgLower.includes('latest') || msgLower.includes('weather') || msgLower.includes('news')
     };
   }
 
@@ -55,16 +47,9 @@ export function classifyQuery(message) {
     };
   }
 
-  if (matchesExternal) {
-    return {
-      mode: 'EXTERNAL',
-      needsWebSearch: msgLower.includes('study in') || msgLower.includes('latest') || msgLower.includes('requirements')
-    };
-  }
-
   return {
     mode: 'GENERAL',
-    needsWebSearch: false
+    needsWebSearch: msgLower.includes('weather') || msgLower.includes('latest') || msgLower.includes('news') || msgLower.includes('today')
   };
 }
 
@@ -74,17 +59,15 @@ export function classifyQuery(message) {
 export function getRouterInstructions(mode, needsWebSearch) {
   let instructions = `INTENT CLASSIFICATION MODE: ${mode}\n`;
   if (mode === 'GENERAL') {
-    instructions += `- The user is asking a general conversational or external question (like weather, news, biography, generic definitions). Answer the question directly and conversational. DO NOT mention the UniCrypt platform, templates, checklists, student status, or document vault unless specifically asked by the user.\n`;
+    instructions += `- You are UniCrypt AI. You are a helpful conversational assistant. You answer general questions naturally. DO NOT reference or mention the UniCrypt platform, credentials, verification, or compliance. Answer the user's question directly and conversationally as a general-purpose AI assistant like ChatGPT.\n`;
   } else if (mode === 'PLATFORM') {
-    instructions += `- The user is asking about UniCrypt platform records. Limit your response strictly to internal platform context data. Do not make up outside history.\n`;
-  } else if (mode === 'EXTERNAL') {
-    instructions += `- The user is asking a general knowledge question. Do not reference platform context or leak student details. Explain general terms clearly.\n`;
+    instructions += `- You are UniCrypt AI. The user is asking about UniCrypt platform records. Limit your response strictly to internal platform context data. Do not make up outside history.\n`;
   } else {
-    instructions += `- The user is asking a hybrid query. Synthesize platform context with general knowledge (e.g. explain what an Apostille is, and advise whether the user's specific verified documents qualify).\n`;
+    instructions += `- You are UniCrypt AI. The user is asking a hybrid query requiring general knowledge and platform context. First, answer the general question. Then, inspect the user's vault and recommend actions using the platform context.\n`;
   }
 
   if (needsWebSearch) {
-    instructions += `- This query benefits from live web compliance lookups. Present a simulated synthesis of current regulations from authoritative government or academic sources.\n`;
+    instructions += `- Live search is currently unavailable. If the user asks for real-time data like weather, news, stock prices, or current events, respond naturally stating: "I currently don't have access to live weather/news information" or similar, instead of generating compliance details or templates.\n`;
   }
 
   return instructions;
