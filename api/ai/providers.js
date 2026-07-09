@@ -23,7 +23,7 @@ async function callProviderAPI(provider, key, messages, preferredModel, style) {
 
   // 1. OpenRouter Integration
   if (p === 'openrouter') {
-    const model = preferredModel || "meta-llama/llama-3-8b-instruct:free";
+    const model = preferredModel || "meta-llama/llama-3-8b-instruct";
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
