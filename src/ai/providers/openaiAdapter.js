@@ -1,7 +1,7 @@
 import { serializeContextToMarkdown } from '../context/contextEngine.js';
 
 export async function askOpenAI(message, context, routerInfo) {
-  const apiKey = import.meta.env.VITE_OPENAI_KEY;
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
 
   if (!apiKey) {
     return {
