@@ -146,6 +146,16 @@ ${liveSearchString}`;
     citations: citations,
     confidence: result.confidence,
     intent: classification.mode,
-    failoverLogs: result.failoverLogs
+    failoverLogs: result.failoverLogs,
+    debug: {
+      nodeVersion: process.version,
+      cwd: process.cwd(),
+      env: {
+        AI_PROVIDER: process.env.AI_PROVIDER || null,
+        HAS_OPENROUTER_KEY: Boolean(process.env.OPENROUTER_API_KEY),
+        HAS_GEMINI_KEY: Boolean(process.env.GEMINI_API_KEY),
+        HAS_OPENAI_KEY: Boolean(process.env.OPENAI_API_KEY)
+      }
+    }
   });
 }
