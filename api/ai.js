@@ -17,6 +17,16 @@ import {
  * Executes query routing, context boundaries, live tool lookups, and auto-failovers.
  */
 export default async function handler(req, res) {
+  // Task 1 Debug Logging
+  console.log("=== VERCEL SERVERLESS ENVIRONMENT DEBUG ===");
+  console.log("Node version:", process.version);
+  console.log("process.cwd():", process.cwd());
+  console.log("process.env.AI_PROVIDER:", process.env.AI_PROVIDER);
+  console.log("Boolean(process.env.OPENROUTER_API_KEY):", Boolean(process.env.OPENROUTER_API_KEY));
+  console.log("Boolean(process.env.GEMINI_API_KEY):", Boolean(process.env.GEMINI_API_KEY));
+  console.log("Boolean(process.env.OPENAI_API_KEY):", Boolean(process.env.OPENAI_API_KEY));
+  console.log("=========================================");
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
