@@ -108,3 +108,18 @@ body {
   animation: slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* UniCrypt OS reserves workspace room for its persistent desktop panel. */
+.unicrypt-os-workspace {
+  padding-right: var(--unicrypt-os-width, 35vw);
+  transition: padding-right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (max-width: 767px) {
+  .unicrypt-os-workspace {
+    padding-right: 0;
+  }
+
+  .unicrypt-os-panel {
+    width: min(100vw, 460px) !important;
+  }
+}

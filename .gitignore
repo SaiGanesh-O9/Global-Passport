@@ -10,3 +10,8 @@ pnpm-debug.log*
 
 .vercel
 .env*
+*.log
+coverage/
+.idea/
+.vscode/
+*.tmp

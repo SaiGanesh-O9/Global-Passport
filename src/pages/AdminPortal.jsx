@@ -601,7 +601,7 @@ export default function AdminPortal() {
   }, [organizations, orgSearchQuery]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900/30 dark:bg-[#090a0f] text-slate-800 dark:text-slate-200 transition-colors duration-250 flex flex-col font-sans">
+    <div className="unicrypt-os-workspace min-h-screen bg-slate-50 dark:bg-slate-900/30 dark:bg-[#090a0f] text-slate-800 dark:text-slate-200 transition-colors duration-250 flex flex-col font-sans">
       
       {/* Top Banner Alert System */}
       {notification && (

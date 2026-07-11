@@ -4,6 +4,9 @@
  * Implements auto-failover, health checks, metrics, and capacity switching.
  */
 
+const PROVIDER_PRIORITY = ['gemini', 'openrouter', 'openai', 'claude', 'ollama'];
+const DEFAULT_PROVIDER = 'gemini';
+
 function getApiKeyForProvider(provider) {
   const p = provider.toLowerCase();
   let key = null;
@@ -11,11 +14,32 @@ function getApiKeyForProvider(provider) {
   else if (p === 'openai') key = process.env.VITE_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
   else if (p === 'gemini') key = process.env.GEMINI_API_KEY;
   else if (p === 'claude') key = process.env.CLAUDE_API_KEY;
-  else if (p === 'ollama') key = process.env.OLLAMA_URL || "http://localhost:11434";
-  
-  console.log(`Checking provider: ${provider}`);
-  console.log(`Found key: ${Boolean(key)}`);
+  else if (p === 'ollama') key = process.env.OLLAMA_URL;
+
   return key;
+}
+
+function resolveProviderOrder(preferredProvider) {
+  const requestedProvider = preferredProvider && preferredProvider !== 'auto'
+    ? preferredProvider.toLowerCase()
+    : (process.env.AI_PROVIDER || DEFAULT_PROVIDER).toLowerCase();
+
+  if (requestedProvider === 'auto') {
+    return [...PROVIDER_PRIORITY];
+  }
+
+  if (!PROVIDER_PRIORITY.includes(requestedProvider)) {
+    console.warn(`[Provider Manager] Unsupported AI_PROVIDER "${requestedProvider}". Falling back to ${DEFAULT_PROVIDER}.`);
+    return [...PROVIDER_PRIORITY];
+  }
+
+  return [requestedProvider, ...PROVIDER_PRIORITY.filter(provider => provider !== requestedProvider)];
+}
+
+function logProviderStatus(provider, configured, status) {
+  console.log(`[Provider] Provider: ${provider}`);
+  console.log(`[Provider] Configured: ${configured ? 'Yes' : 'No'}`);
+  console.log(`[Provider] ${status}`);
 }
 
 async function callProviderAPI(provider, key, messages, preferredModel, style) {
@@ -146,47 +170,41 @@ async function callProviderAPI(provider, key, messages, preferredModel, style) {
 }
 
 export async function getResponseWithFailover(messages, preferredProvider = 'auto', preferredModel = '', style = 'balanced') {
-  const providersOrder = ['openrouter', 'openai', 'gemini', 'claude', 'ollama'];
-  
-  let startIdx = 0;
-  let activeOrder = [...providersOrder];
+  const activeOrder = resolveProviderOrder(preferredProvider);
+  const configuredProviders = new Map(
+    activeOrder.map(provider => [provider, getApiKeyForProvider(provider)])
+  );
 
-  if (preferredProvider && preferredProvider !== 'auto') {
-    const chosen = preferredProvider.toLowerCase();
-    activeOrder = [chosen, ...providersOrder.filter(x => x !== chosen)];
-  }
+  activeOrder.forEach((provider, index) => {
+    const configured = Boolean(configuredProviders.get(provider));
+    logProviderStatus(provider, configured, configured
+      ? (index === 0 ? 'Selected: Yes' : 'Standby')
+      : 'Skipped');
+  });
 
   let lastError = null;
   const attemptsLog = [];
 
   for (let i = 0; i < activeOrder.length; i++) {
     const providerName = activeOrder[i];
-    const key = getApiKeyForProvider(providerName);
-    const isConfigured = Boolean(key) || providerName === 'ollama';
+    const key = configuredProviders.get(providerName);
+    const isConfigured = Boolean(key);
 
     if (!isConfigured) {
-      console.log(`[Provider Debug] Provider: ${providerName}`);
-      console.log(`[Provider Debug] Configured: false`);
-      console.log(`[Provider Debug] Selected: false`);
-      console.log(`[Provider Debug] Skipped: true`);
-      console.log(`[Provider Debug] Failure reason: Missing API Key`);
-      console.log(`[Provider Debug] Success: false`);
       continue;
     }
 
     const startTime = Date.now();
     try {
-      console.log(`[Provider Debug] Provider: ${providerName}`);
-      console.log(`[Provider Debug] Configured: true`);
-      console.log(`[Provider Debug] Selected: true`);
-      console.log(`[Provider Debug] Skipped: false`);
+      if (i > 0) {
+        logProviderStatus(providerName, true, 'Selected: Yes (failover)');
+      }
       console.log(`[Provider Manager] Contacting ${providerName}...`);
       
       const response = await callProviderAPI(providerName, key, messages, preferredModel, style);
       const latency = Date.now() - startTime;
       
-      console.log(`[Provider Debug] Success: true`);
-      console.log(`[Provider Debug] Failure reason: none`);
+      console.log(`[Provider] Provider: ${providerName} succeeded in ${latency}ms.`);
       
       return {
         success: true,
@@ -202,8 +220,6 @@ export async function getResponseWithFailover(messages, preferredProvider = 'aut
       };
     } catch (err) {
       const latency = Date.now() - startTime;
-      console.log(`[Provider Debug] Success: false`);
-      console.log(`[Provider Debug] Failure reason: ${err.message}`);
       console.error(`[Provider Manager] Failed ${providerName} (${latency}ms):`, err.message);
       
       attemptsLog.push({

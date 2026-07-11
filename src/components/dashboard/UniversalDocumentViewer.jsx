@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Card from '../ui/Card.jsx';
 import {
   X,
@@ -13,20 +13,43 @@ import {
   ShieldCheck,
   AlertCircle
 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Hand, Layers, RotateCcw } from 'lucide-react';
 
 export default function UniversalDocumentViewer({ document, onClose }) {
   const [zoom, setZoom] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showMetadata, setShowMetadata] = useState(true);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [showHighlights, setShowHighlights] = useState(false);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const dragRef = useRef(null);
 
   if (!document) return null;
 
-  const isPdf = document.fileName?.toLowerCase().endsWith('.pdf');
-  const fileUrl = document.fileUrl || '';
+  const pages = Array.isArray(document.pages) && document.pages.length ? document.pages : [document];
+  const activePage = pages[Math.min(pageIndex, pages.length - 1)] || document;
+  const isPdf = activePage.fileName?.toLowerCase().endsWith('.pdf');
+  const fileUrl = activePage.fileUrl || '';
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.2, 3));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.2, 0.5));
-  const handleResetZoom = () => setZoom(1);
+  const handleResetZoom = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
+  const beginPan = (event) => {
+    if (isPdf) return;
+    dragRef.current = { x: event.clientX - pan.x, y: event.clientY - pan.y };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  const movePan = (event) => {
+    if (!dragRef.current) return;
+    setPan({ x: event.clientX - dragRef.current.x, y: event.clientY - dragRef.current.y });
+  };
+
+  const endPan = () => { dragRef.current = null; };
 
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 dark:bg-black/90 backdrop-blur-md transition-all duration-200 ${
@@ -75,6 +98,16 @@ export default function UniversalDocumentViewer({ document, onClose }) {
               </div>
             )}
 
+            {pages.length > 1 && (
+              <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5 dark:border-slate-700 dark:bg-slate-800">
+                <button className="p-1 disabled:opacity-30" disabled={pageIndex === 0} onClick={() => setPageIndex(index => index - 1)} title="Previous page"><ChevronLeft className="h-3.5 w-3.5" /></button>
+                <span className="px-1 text-[9px] font-bold text-slate-500">{pageIndex + 1}/{pages.length}</span>
+                <button className="p-1 disabled:opacity-30" disabled={pageIndex === pages.length - 1} onClick={() => setPageIndex(index => index + 1)} title="Next page"><ChevronRight className="h-3.5 w-3.5" /></button>
+              </div>
+            )}
+
+            {!isPdf && <button onClick={() => setShowHighlights(value => !value)} className={`p-2 rounded-lg border cursor-pointer ${showHighlights ? 'bg-violet-500/10 border-violet-500/20 text-violet-600 dark:text-violet-300' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'}`} title="Toggle Vision overlay"><Layers className="h-4 w-4" /></button>}
+
             {/* View controls */}
             <button
               onClick={() => setShowMetadata(prev => !prev)}
@@ -122,7 +155,7 @@ export default function UniversalDocumentViewer({ document, onClose }) {
 
         {/* Viewport Area */}
         <div className="flex-1 flex overflow-hidden bg-slate-100 dark:bg-slate-950 relative">
-          <div className="flex-1 flex items-center justify-center p-4 overflow-auto">
+          <div className="flex-1 flex items-center justify-center overflow-hidden p-4">
             {isPdf ? (
               fileUrl ? (
                 <iframe
@@ -140,15 +173,24 @@ export default function UniversalDocumentViewer({ document, onClose }) {
                 </div>
               )
             ) : (
-              <div 
-                className="transition-transform duration-100 ease-out origin-center max-w-full max-h-full"
-                style={{ transform: `scale(${zoom})` }}
+              <div
+                className="relative max-h-full max-w-full touch-none transition-transform duration-100 ease-out"
+                onPointerDown={beginPan}
+                onPointerMove={movePan}
+                onPointerUp={endPan}
+                onPointerCancel={endPan}
+                style={{ cursor: zoom > 1 ? 'grab' : 'default', transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
               >
                 <img
                   src={fileUrl || 'https://images.unsplash.com/photo-1586075010923-2dd4570fb338?q=80&w=600'}
                   alt="Document Preview"
                   className="max-w-[85vw] max-h-[70vh] rounded-xl shadow-lg object-contain bg-white dark:bg-[#12131a] border border-slate-200/50 dark:border-slate-800/35"
                 />
+                {showHighlights && (
+                  <div className="pointer-events-none absolute inset-[12%] rounded-lg border border-dashed border-violet-400/80 bg-violet-500/5">
+                    <span className="absolute -top-5 left-0 rounded bg-violet-600 px-1.5 py-0.5 text-[8px] font-bold text-white">Vision overlay layer</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -164,6 +206,10 @@ export default function UniversalDocumentViewer({ document, onClose }) {
                     <span className="font-bold text-slate-950 dark:text-white uppercase">{isPdf ? 'PDF File' : 'Image'}</span>
                   </div>
                   <div className="flex justify-between">
+                    <span>Pages</span>
+                    <span className="font-bold text-slate-950 dark:text-white">{pageIndex + 1} of {pages.length}</span>
+                  </div>
+                  <div className="flex justify-between">
                     <span>Version</span>
                     <span className="font-bold text-slate-950 dark:text-white">{document.version || 1}</span>
                   </div>
@@ -176,6 +222,12 @@ export default function UniversalDocumentViewer({ document, onClose }) {
                     <span className="font-bold text-slate-950 dark:text-white uppercase">{document.storageStatus || 'enabled'}</span>
                   </div>
                 </div>
+              </div>
+
+              <div className="rounded-xl border border-violet-500/15 bg-violet-500/5 p-3 text-[10px] leading-relaxed text-slate-600 dark:text-slate-300">
+                <div className="flex items-center gap-1.5 font-bold text-violet-700 dark:text-violet-300"><Hand className="h-3.5 w-3.5" /> Vision workspace</div>
+                <p className="mt-1">Highlight overlays are available now. Selectable regions, bounding boxes, readiness comparisons, and explanations are reserved for the next Vision sprint.</p>
+                <button className="mt-2 inline-flex items-center gap-1 font-bold text-blue-600 dark:text-blue-300" onClick={handleResetZoom} type="button"><RotateCcw className="h-3 w-3" /> Reset view</button>
               </div>
 
               <div className="space-y-3">

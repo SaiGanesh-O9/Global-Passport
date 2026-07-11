@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileCheck2, Bell, Search, User, Check, Archive, Trash, ExternalLink } from 'lucide-react';
+import { FileCheck2, Bell, Search, User, Check, Archive, Trash, ExternalLink, Bot } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useDocuments } from '../../hooks/useDocuments.js';
@@ -15,6 +15,18 @@ export default function SidebarLayout({ children, navItems, subtitle, title }) {
 
   const [notifications, setNotifications] = useState([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [osMode, setOsMode] = useState(() => localStorage.getItem('unicrypt_os_panel_mode') || 'expanded');
+
+  useEffect(() => {
+    const syncOsState = (event) => setOsMode(event.detail?.mode || 'expanded');
+    window.addEventListener('unicrypt-os-state', syncOsState);
+    return () => window.removeEventListener('unicrypt-os-state', syncOsState);
+  }, []);
+
+  const cycleOsPanel = () => {
+    const nextMode = osMode === 'expanded' ? 'collapsed' : osMode === 'collapsed' ? 'hidden' : 'expanded';
+    window.dispatchEvent(new CustomEvent('unicrypt-os-control', { detail: { mode: nextMode } }));
+  };
 
   useEffect(() => {
     if (!currentUser) return;
@@ -126,6 +138,15 @@ export default function SidebarLayout({ children, navItems, subtitle, title }) {
                 </NavLink>
               );
             })}
+            <button
+              className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-xs font-bold text-blue-600 transition-all duration-150 hover:bg-blue-500/10 dark:text-blue-400"
+              onClick={cycleOsPanel}
+              type="button"
+            >
+              <Bot className="h-4.5 w-4.5 shrink-0" />
+              <span>UniCrypt OS</span>
+              <span className="ml-auto text-[8px] uppercase tracking-wider text-slate-400">{osMode}</span>
+            </button>
           </nav>
         </div>
 
@@ -206,7 +227,7 @@ export default function SidebarLayout({ children, navItems, subtitle, title }) {
       </aside>
 
       {/* Main Container */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="unicrypt-os-workspace flex-1 flex flex-col min-w-0">
         
         {/* 2. Floating Modern Header */}
         <header className="sticky top-0 z-30 border-b border-slate-200/80 dark:border-slate-800/40 bg-slate-50/80 dark:bg-[#090a0f]/80 backdrop-blur-md px-6 py-4 flex items-center justify-between transition-theme">

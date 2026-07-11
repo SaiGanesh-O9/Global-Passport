@@ -5,7 +5,7 @@ import SidebarLayout from './SidebarLayout.jsx';
 import ThemeToggle from '../ui/ThemeToggle.jsx';
 import Avatar from '../ui/Avatar.jsx';
 import AICopilot from '../ui/AICopilot.jsx';
-import { FileCheck2, Search } from 'lucide-react';
+import { Bot, FileCheck2, Search } from 'lucide-react';
 
 function UserProfileHeader() {
   const { currentUser, userProfile } = useAuth();
@@ -66,6 +66,14 @@ export default function RoleBasedLayoutWrapper({ children, navItems, title, subt
           </div>
           
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('unicrypt-os-control', { detail: { mode: 'toggle' } }))}
+              className="rounded-xl p-2 text-blue-600 transition hover:bg-blue-500/10 dark:text-blue-400"
+              title="Toggle UniCrypt OS"
+              type="button"
+            >
+              <Bot className="h-4 w-4" />
+            </button>
             <ThemeToggle />
             <button
               onClick={handleLogout}
@@ -75,7 +83,7 @@ export default function RoleBasedLayoutWrapper({ children, navItems, title, subt
             </button>
           </div>
         </header>
-        <main className="flex-1 max-w-7xl w-full mx-auto px-6 py-8">
+        <main className="unicrypt-os-workspace flex-1 max-w-7xl w-full mx-auto px-6 py-8">
           <UserProfileHeader />
           {children}
         </main>

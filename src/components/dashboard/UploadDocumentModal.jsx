@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useMemo } from 'react';
 import { db, collection, addDoc, doc, setDoc } from '../../firebase/firebase.js';
 import { useDocuments } from '../../hooks/useDocuments.js';
 import { useDocumentActions } from '../../hooks/useDocumentActions.js';
@@ -25,6 +25,8 @@ import {
   ClipboardList,
   Sparkles
 } from 'lucide-react';
+
+const CaptureStudio = lazy(() => import('./CaptureStudio.jsx'));
 
 const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg'];
 
@@ -58,6 +60,7 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
   const [submitProgress, setSubmitProgress] = useState('');
   const [error, setError] = useState('');
   const [hasStorageError, setHasStorageError] = useState(false);
+  const [captureTarget, setCaptureTarget] = useState(null);
 
   // AI Checklist Suggestion states
   const [aiSuggestion, setAiSuggestion] = useState('');
@@ -71,6 +74,7 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
       setPurpose('');
       setConsentApproved(false);
       setSubmitting(false);
+      setCaptureTarget(null);
 
       if (targetRequest) {
         // Find corresponding organization profile and service
@@ -201,7 +205,15 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
     setSelectedOrg(null);
     setSelectedService(null);
     setFiles({});
+    setCaptureTarget(null);
     onClose();
+  };
+
+  const handleCaptureComplete = (file) => {
+    if (captureTarget && file) {
+      setFiles(previous => ({ ...previous, [captureTarget.type]: file }));
+    }
+    setCaptureTarget(null);
   };
 
   // Submit request handler
@@ -562,25 +574,19 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
                           </div>
 
                           {!item.isVerified && (
-                            <div className="relative">
-                              <label className="flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-800 rounded-xl p-3.5 text-center cursor-pointer transition-colors duration-150">
-                                <input
-                                  type="file"
-                                  className="hidden"
-                                  onChange={(e) => handleFileChange(item.type, e, item)}
-                                  accept={item.acceptedFileTypes?.join(',')}
-                                />
-                                <div className="space-y-1 text-slate-550 dark:text-slate-400">
-                                  <Upload className="h-5 w-5 mx-auto text-slate-450" />
-                                  <span className="text-[10px] font-bold uppercase tracking-wider block">
-                                    {files[item.type] ? files[item.type].name : 'Click to Upload attachment'}
-                                  </span>
-                                  <span className="text-[9px] text-slate-400 block font-semibold">
-                                    {item.acceptedFileTypes?.join(', ')} (Max 5MB)
-                                  </span>
-                                </div>
-                              </label>
-                            </div>
+                            <button
+                              className="flex w-full items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-800 rounded-xl p-3.5 text-center cursor-pointer transition-colors duration-150"
+                              onClick={() => setCaptureTarget(item)}
+                              type="button"
+                            >
+                              <div className="space-y-1 text-slate-550 dark:text-slate-400">
+                                <Upload className="h-5 w-5 mx-auto text-blue-500" />
+                                <span className="text-[10px] font-bold uppercase tracking-wider block">
+                                  {files[item.type] ? 'Replace with UniCrypt Capture' : 'Upload or Capture Document'}
+                                </span>
+                                <span className="text-[9px] text-slate-400 block font-semibold">Camera guidance and enhanced scans available</span>
+                              </div>
+                            </button>
                           )}
                         </div>
                       );
@@ -691,6 +697,15 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
           )}
         </div>
       </Card>
+      {captureTarget && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-md">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-700/50 bg-white p-5 shadow-2xl dark:bg-[#12131a] sm:p-6">
+            <Suspense fallback={<div className="flex min-h-64 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-blue-500" /></div>}>
+              <CaptureStudio credentialType={captureTarget.type} onCancel={() => setCaptureTarget(null)} onComplete={handleCaptureComplete} />
+            </Suspense>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
