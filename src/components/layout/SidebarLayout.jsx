@@ -1,18 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { FileCheck2, Bell, Search, User, Check, Archive, Trash, ExternalLink, Bot } from 'lucide-react';
+import { FileCheck2, Bell, User, Check, Archive, Trash, ExternalLink, Bot } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useDocuments } from '../../hooks/useDocuments.js';
-import { useOrganizations } from '../../context/OrganizationContext.jsx';
 import { db, collection, query, where, orderBy, onSnapshot, updateDoc, doc } from '../../firebase/firebase.js';
 import ThemeToggle from '../ui/ThemeToggle.jsx';
 import Avatar from '../ui/Avatar.jsx';
 import Breadcrumbs from '../ui/Breadcrumbs.jsx';
+import GlobalSearch from '../organizations/GlobalSearch.jsx';
 
 export default function SidebarLayout({ children, navItems, subtitle, title }) {
   const { logout, currentUser, userProfile, loginAsDeveloper } = useAuth();
   const { selectedRequest } = useDocuments();
-  const { searchQuery, setSearchQuery } = useOrganizations();
   const navigate = useNavigate();
 
   const [notifications, setNotifications] = useState([]);
@@ -237,15 +236,8 @@ export default function SidebarLayout({ children, navItems, subtitle, title }) {
           
           <div className="flex items-center gap-3.5">
             {/* Functional search query bar */}
-            <div className="relative hidden md:block">
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400 animate-pulse" />
-              <input
-                type="text"
-                placeholder="Global Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8.5 pr-3 py-1.5 w-48 text-[11px] font-semibold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-900/40 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/30"
-              />
+            <div className="hidden md:block">
+              <GlobalSearch />
             </div>
             
             {/* Theme Toggle switch component */}

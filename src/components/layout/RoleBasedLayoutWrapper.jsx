@@ -1,12 +1,12 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.js';
-import { useOrganizations } from '../../context/OrganizationContext.jsx';
 import SidebarLayout from './SidebarLayout.jsx';
 import ThemeToggle from '../ui/ThemeToggle.jsx';
 import Avatar from '../ui/Avatar.jsx';
 import AICopilot from '../ui/AICopilot.jsx';
-import { Bot, FileCheck2, Search } from 'lucide-react';
+import GlobalSearch from '../organizations/GlobalSearch.jsx';
+import { Bot, FileCheck2 } from 'lucide-react';
 
 function UserProfileHeader() {
   const { currentUser, userProfile } = useAuth();
@@ -44,8 +44,6 @@ export default function RoleBasedLayoutWrapper({ children, navItems, title, subt
     navigate('/login');
   };
 
-  const { searchQuery, setSearchQuery } = useOrganizations();
-
   if (role === 'student') {
     // User role: render without SidebarLayout (full-width view with top header)
     return (
@@ -58,15 +56,8 @@ export default function RoleBasedLayoutWrapper({ children, navItems, title, subt
             <span className="tracking-tight font-extrabold text-slate-900 dark:text-white">UniCrypt</span>
           </div>
 
-          <div className="relative hidden md:block">
-            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400 animate-pulse" />
-            <input
-              type="text"
-              placeholder="Global Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8.5 pr-3 py-1.5 w-48 text-[11px] font-semibold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-850 bg-slate-50 dark:bg-slate-900/40 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/30"
-            />
+          <div className="hidden md:block">
+            <GlobalSearch />
           </div>
           
           <div className="flex items-center gap-4">
