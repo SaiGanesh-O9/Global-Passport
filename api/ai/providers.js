@@ -95,7 +95,7 @@ async function callProviderAPI(provider, key, messages, preferredModel, style) {
 
   // 3. Gemini Integration
   if (p === 'gemini') {
-    const model = preferredModel || "gemini-2.5-flash";
+    const model = preferredModel || "gemini-2.0-flash";
     const formattedContents = messages.map(m => ({
       role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }]
