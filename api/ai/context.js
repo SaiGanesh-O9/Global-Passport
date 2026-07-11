@@ -1,8 +1,4 @@
-/**
- * Context Engine Module
- * Compiles and filters active state documents based on user roles (Student, Org Reviewer, Superadmin)
- * to guarantee strict multi-tenant boundary isolation.
- */
+import { organizationsData } from '../../src/data/organizations/index.js';
 
 export function compileAIContext(currentUser, userProfile, state, currentScreen) {
   if (!userProfile && !currentUser) {
@@ -66,6 +62,51 @@ export function compileAIContext(currentUser, userProfile, state, currentScreen)
     context.notifications = (state.notifications || []).filter(n => n.recipientEmail === email);
   }
 
+  // Parse viewed institution details from screen query params
+  if (currentScreen && currentScreen.includes('#organizations')) {
+    try {
+      const queryPart = currentScreen.split('?')[1] || '';
+      const params = new URLSearchParams(queryPart);
+      const viewOrgId = params.get('id');
+      const viewProgId = params.get('program');
+
+      if (viewOrgId && organizationsData[viewOrgId]) {
+        const fullData = organizationsData[viewOrgId];
+        const orgProf = fullData.profile;
+        context.viewedInstitution = {
+          currentOrg: {
+            id: orgProf.id,
+            name: orgProf.name,
+            category: orgProf.category,
+            website: orgProf.website,
+            country: orgProf.country,
+            state: orgProf.state,
+            description: orgProf.description
+          }
+        };
+
+        if (viewProgId) {
+          const prog = (fullData.programs || []).find(p => p.id === viewProgId);
+          if (prog) {
+            context.viewedInstitution.currentProgram = {
+              id: prog.id,
+              name: prog.name,
+              degree: prog.degree,
+              tuition: prog.tuition,
+              duration: prog.duration,
+              credits: prog.credits,
+              stemStatus: prog.stemStatus,
+              description: prog.description
+            };
+            context.viewedInstitution.currentRequirementSet = (fullData.requirements || {})[viewProgId] || [];
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse viewed institution context:", e);
+    }
+  }
+
   return context;
 }
 
@@ -75,6 +116,31 @@ export function serializeContextToMarkdown(context) {
   md += `- **Current User**: ${context.profile?.name || 'Anonymous'} (${context.profile?.email || 'N/A'})\n`;
   md += `- **Role/Permissions**: ${(context.role || 'student').toUpperCase()}\n`;
   md += `- **Active Screen Layout**: ${context.currentScreen || 'Dashboard'}\n\n`;
+
+  if (context.viewedInstitution) {
+    const { currentOrg, currentProgram, currentRequirementSet } = context.viewedInstitution;
+    md += `=== VIEWED INSTITUTION CONTEXT ===\n`;
+    md += `- **Name**: ${currentOrg.name} (${currentOrg.category})\n`;
+    md += `- **Location**: ${currentOrg.state ? currentOrg.state + ', ' : ''}${currentOrg.country}\n`;
+    md += `- **Website**: ${currentOrg.website || 'N/A'}\n`;
+    md += `- **Description**: ${currentOrg.description || 'N/A'}\n`;
+    
+    if (currentProgram) {
+      md += `\n=== SELECTED ACADEMIC PROGRAM ===\n`;
+      md += `- **Program**: ${currentProgram.name} (${currentProgram.degree})\n`;
+      md += `- **Duration**: ${currentProgram.duration} (${currentProgram.credits} credits)\n`;
+      md += `- **Tuition**: ${currentProgram.tuition} (STEM: ${currentProgram.stemStatus})\n`;
+      md += `- **Description**: ${currentProgram.description || 'N/A'}\n`;
+    }
+    
+    if (currentRequirementSet && currentRequirementSet.length > 0) {
+      md += `\n=== ADMISSION REQUIREMENTS CHECKLIST ===\n`;
+      currentRequirementSet.forEach((req, idx) => {
+        md += `- Requirement ${idx + 1}: ${req.type} (${req.required ? 'Required' : 'Optional'}) - Details: ${req.details}\n`;
+      });
+    }
+    md += `\n`;
+  }
 
   md += `=== VERIFICATION REQUESTS (${(context.verificationRequests || []).length}) ===\n`;
   if (context.verificationRequests && context.verificationRequests.length > 0) {

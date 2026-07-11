@@ -188,6 +188,60 @@ export default function AICopilot() {
   }, [mode]);
 
   useEffect(() => {
+    const handlePromptCommand = async (event) => {
+      const promptText = event.detail?.prompt;
+      if (promptText) {
+        if (mode === 'hidden' || mode === 'collapsed') {
+          setPanelMode('expanded');
+        }
+        setActiveTab('assistant');
+        
+        const userMessage = { id: `user-${Date.now()}`, sender: 'user', text: promptText, timestamp: new Date().toLocaleTimeString() };
+        setMessages(previous => [...previous, userMessage]);
+        setLoading(true);
+        
+        try {
+          const response = await askAI(promptText, {
+            currentUser,
+            userProfile,
+            state: {
+              verificationRequests: documentsState.verificationRequests,
+              credentials: documentsState.credentials,
+              documents: documentsState.documents,
+              organizationProfiles: documentsState.organizationProfiles,
+              verificationServices: documentsState.verificationServices,
+              credentialTemplates: documentsState.credentialTemplates,
+              activities: documentsState.activities,
+              notifications: documentsState.notifications
+            },
+            currentScreen: window.location.hash || '#dashboard'
+          });
+          setMessages(previous => [...previous, {
+            id: `ai-${Date.now()}`,
+            sender: 'ai',
+            text: response.reply || 'No response from UniCrypt OS.',
+            intent: response.intent || 'general',
+            citations: response.citations || [],
+            provider: response.provider || 'none',
+            model: response.model || 'none',
+            timestamp: new Date().toLocaleTimeString()
+          }]);
+          if (response.action) {
+            if (response.action.type === 'SWITCH_TAB') navigate(response.action.hash);
+            window.dispatchEvent(new CustomEvent('unicrypt-ai-action', { detail: response.action }));
+          }
+        } catch {
+          setMessages(previous => [...previous, { id: `error-${Date.now()}`, sender: 'ai', text: '**System Error**\nUniCrypt OS could not complete that request. Please try again.', timestamp: new Date().toLocaleTimeString() }]);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    window.addEventListener('unicrypt-os-prompt', handlePromptCommand);
+    return () => window.removeEventListener('unicrypt-os-prompt', handlePromptCommand);
+  }, [mode, currentUser, userProfile, documentsState, navigate]);
+
+  useEffect(() => {
     const clampedWidth = Math.min(Math.round(window.innerWidth * 0.5), Math.max(300, width));
     document.documentElement.style.setProperty('--unicrypt-os-width', mode === 'hidden' ? '0px' : `${mode === 'collapsed' ? 56 : clampedWidth}px`);
     localStorage.setItem(STORAGE_KEYS.width, String(clampedWidth));

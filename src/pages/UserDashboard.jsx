@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useDocuments } from '../hooks/useDocuments.js';
 import { useAuth } from '../hooks/useAuth.js';
@@ -11,8 +11,11 @@ import UniversalDocumentViewer from '../components/dashboard/UniversalDocumentVi
 import { FileText, LayoutDashboard, Settings, Upload, Mail, Search, Building2, CheckCircle2, Globe, ChevronRight, Shield, Activity, User, Clock, AlertCircle, FileCheck, Download, Eye } from 'lucide-react';
 import AIPreferences from '../components/ui/AIPreferences.jsx';
 
+const OrganizationsPage = lazy(() => import('./OrganizationsPage.jsx'));
+
 export const userNavItems = [
   { label: 'Dashboard', to: '/dashboard#dashboard', icon: LayoutDashboard },
+  { label: 'Organizations', to: '/dashboard#organizations', icon: Building2 },
   { label: 'Credential Vault', to: '/dashboard#vault', icon: Shield },
   { label: 'Verification Requests', to: '/dashboard#requests', icon: FileText },
   { label: 'Recent Activity', to: '/dashboard#activity', icon: Activity },
@@ -622,6 +625,16 @@ export default function UserDashboard() {
     switch (activeTab) {
       case 'dashboard':
         return renderDashboardView();
+      case 'organizations':
+        return (
+          <Suspense fallback={
+            <div className="flex items-center justify-center py-16 text-slate-500 text-xs font-bold uppercase tracking-wider animate-pulse">
+              Loading Organizations Catalog...
+            </div>
+          }>
+            <OrganizationsPage />
+          </Suspense>
+        );
       case 'vault':
         return renderVaultView();
       case 'requests':
