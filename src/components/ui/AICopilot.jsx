@@ -9,6 +9,7 @@ import { askAI } from '../../ai/gateway/index.js';
 import { clearSessionMemory } from '../../ai/context/conversationMemory.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useDocuments } from '../../hooks/useDocuments.js';
+import Card from './Card.jsx';
 
 const STORAGE_KEYS = {
   mode: 'unicrypt_os_panel_mode',
