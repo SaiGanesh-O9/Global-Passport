@@ -20,7 +20,8 @@ export function classifyQuery(message) {
   const hybridKeywords = [
     'apply', 'visa', 'admission', 'university', 'college', 'iowa state', 
     'central missouri', 'missouri state', 'arizona state', 'texas at dall', 
-    'northeastern', 'stanford', 'oxford', 'melbourne', 'singapore', 'requirement'
+    'northeastern', 'stanford', 'oxford', 'melbourne', 'singapore', 'requirement',
+    'program', 'tuition', 'fee', 'deadline', 'scholarship', 'timeline', 'cost'
   ];
 
   const matchesPlatform = platformKeywords.some(kw => msgLower.includes(kw));
