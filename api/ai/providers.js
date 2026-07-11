@@ -47,7 +47,7 @@ async function callProviderAPI(provider, key, messages, preferredModel, style) {
 
   // 1. OpenRouter Integration
   if (p === 'openrouter') {
-    const model = preferredModel || "meta-llama/llama-3-8b-instruct";
+    const model = preferredModel || "meta-llama/llama-3.1-8b-instruct";
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -95,7 +95,7 @@ async function callProviderAPI(provider, key, messages, preferredModel, style) {
 
   // 3. Gemini Integration
   if (p === 'gemini') {
-    const model = preferredModel || "gemini-1.5-flash";
+    const model = preferredModel || "gemini-2.5-flash";
     const formattedContents = messages.map(m => ({
       role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }]

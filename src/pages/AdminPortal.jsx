@@ -69,6 +69,19 @@ export default function AdminPortal() {
     loading
   } = useDocuments();
 
+
+  const [localPlatformSettings, setLocalPlatformSettings] = useState({
+    maintenanceMode: false,
+    allowSelfRegistration: true,
+    maxUploadSizeMb: 20
+  });
+
+  useEffect(() => {
+    if (platformSettings) {
+      setLocalPlatformSettings(platformSettings);
+    }
+  }, [platformSettings]);
+
   const loadingUsers = loading;
   const loadingOrgs = loading;
   const loadingRequests = loading;
@@ -431,7 +444,7 @@ export default function AdminPortal() {
     e.preventDefault();
     setActionProcessing(true);
     try {
-      await savePlatformSettings(platformSettings, currentUser.email, currentUser.uid);
+      await savePlatformSettings(localPlatformSettings, currentUser.email, currentUser.uid);
       triggerNotification('success', 'Platform settings saved successfully.');
     } catch (err) {
       console.error(err);
@@ -1942,8 +1955,8 @@ export default function AdminPortal() {
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input 
                         type="checkbox"
-                        checked={platformSettings.maintenanceMode}
-                        onChange={(e) => setPlatformSettings(prev => ({ ...prev, maintenanceMode: e.target.checked }))}
+                        checked={localPlatformSettings.maintenanceMode}
+                        onChange={(e) => setLocalPlatformSettings(prev => ({ ...prev, maintenanceMode: e.target.checked }))}
                         className="sr-only peer"
                       />
                       <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-[#12131a] after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
@@ -1957,15 +1970,15 @@ export default function AdminPortal() {
                         <UsersIcon className="h-4 w-4 text-slate-550" />
                         Allow Self-Registration
                       </p>
-                      <p className="text-[10px] text-slate-450 dark:text-slate-500 mt-0.5">
+                      <p className="text-[10px] text-slate-455 mt-0.5">
                         Enables new visitors to sign up and establish user profile documents.
                       </p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input 
                         type="checkbox"
-                        checked={platformSettings.allowSelfRegistration}
-                        onChange={(e) => setPlatformSettings(prev => ({ ...prev, allowSelfRegistration: e.target.checked }))}
+                        checked={localPlatformSettings.allowSelfRegistration}
+                        onChange={(e) => setLocalPlatformSettings(prev => ({ ...prev, allowSelfRegistration: e.target.checked }))}
                         className="sr-only peer"
                       />
                       <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-[#12131a] after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
@@ -1979,7 +1992,7 @@ export default function AdminPortal() {
                         Maximum Document Upload Size
                       </p>
                       <span className="bg-blue-50 dark:bg-blue-950/20 text-blue-800 dark:text-blue-300 font-bold px-2 py-0.5 rounded text-[10px]">
-                        {platformSettings.maxUploadSizeMb} MB
+                        {localPlatformSettings.maxUploadSizeMb} MB
                       </span>
                     </div>
                     <p className="text-[10px] text-slate-455 dark:text-slate-500 leading-relaxed">
@@ -1990,8 +2003,8 @@ export default function AdminPortal() {
                       min="5"
                       max="100"
                       step="5"
-                      value={platformSettings.maxUploadSizeMb}
-                      onChange={(e) => setPlatformSettings(prev => ({ ...prev, maxUploadSizeMb: parseInt(e.target.value) }))}
+                      value={localPlatformSettings.maxUploadSizeMb}
+                      onChange={(e) => setLocalPlatformSettings(prev => ({ ...prev, maxUploadSizeMb: parseInt(e.target.value) }))}
                       className="w-full h-1.5 bg-slate-200 rounded-2xl appearance-none cursor-pointer focus:outline-none mt-2"
                     />
                   </div>
