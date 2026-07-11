@@ -87,10 +87,12 @@ export default async function handler(req, res) {
 
     // Role prompt determination
     let roleInstructions = studentPrompt;
-    if (context.role === 'organization') roleInstructions = organizationPrompt;
-    if (context.role === 'super_admin') roleInstructions = adminPrompt;
+    if (context) {
+      if (context.role === 'organization') roleInstructions = organizationPrompt;
+      if (context.role === 'super_admin') roleInstructions = adminPrompt;
+    }
 
-    const serialized = serializeContextToMarkdown(context);
+    const serialized = context ? serializeContextToMarkdown(context) : '';
     const routerInfo = getRouterInstructions(classification.mode, classification.needsWebSearch);
 
     systemPrompt = `${SYSTEM_INSTRUCTIONS}
