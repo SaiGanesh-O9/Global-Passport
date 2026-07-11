@@ -10,7 +10,7 @@ import Breadcrumbs from '../ui/Breadcrumbs.jsx';
 import GlobalSearch from '../organizations/GlobalSearch.jsx';
 
 export default function SidebarLayout({ children, navItems, subtitle, title }) {
-  const { logout, currentUser, userProfile, loginAsDeveloper } = useAuth();
+  const { logout, currentUser, userProfile, loginAsDeveloper, role } = useAuth();
   const { selectedRequest } = useDocuments();
   const navigate = useNavigate();
 
@@ -96,12 +96,27 @@ export default function SidebarLayout({ children, navItems, subtitle, title }) {
       <aside className="border-b lg:border-b-0 lg:border-r border-slate-200/80 dark:border-slate-800/40 bg-white/80 dark:bg-[#12131a]/80 backdrop-blur-md px-5 py-6 lg:w-72 shrink-0 flex flex-col justify-between transition-theme">
         <div className="space-y-8">
           {/* Brand header */}
-          <NavLink className="flex items-center gap-2 text-lg font-bold text-blue-600 dark:text-blue-400" to="/">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-500/20">
+          <button
+            onClick={() => {
+              let path = '/';
+              if (role === 'super_admin') path = '/admin';
+              else if (role === 'organization') path = '/institution';
+              else if (role === 'student' || role === 'employer') path = '/dashboard';
+              navigate(path);
+            }}
+            onDoubleClick={() => window.dispatchEvent(new CustomEvent('unicrypt-toggle-search'))}
+            className="flex items-center gap-2 text-lg font-bold text-blue-600 dark:text-blue-400 hover:scale-[1.03] active:scale-[0.98] transition-all duration-150 outline-none cursor-pointer group relative text-left"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-500/20 shrink-0">
               <FileCheck2 className="h-5 w-5" />
             </span>
             <span className="tracking-tight font-extrabold text-slate-900 dark:text-white">UniCrypt</span>
-          </NavLink>
+            
+            {/* Tooltip */}
+            <span className="absolute left-1/2 -translate-x-1/2 top-full mt-2 scale-90 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-150 bg-slate-900 dark:bg-slate-800 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-lg pointer-events-none whitespace-nowrap z-50">
+              Go to Home
+            </span>
+          </button>
 
           {/* Active Request Selection Preview */}
           {selectedRequest && (

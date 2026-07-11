@@ -49,12 +49,27 @@ export default function RoleBasedLayoutWrapper({ children, navItems, title, subt
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-[#090a0f] text-slate-800 dark:text-slate-200 transition-colors duration-250 flex flex-col">
         <header className="sticky top-0 z-30 border-b border-slate-200/80 dark:border-slate-800/40 bg-white/80 dark:bg-[#12131a]/80 backdrop-blur-md px-6 py-4 flex items-center justify-between transition-theme">
-          <div className="flex items-center gap-2 text-lg font-bold text-blue-600 dark:text-blue-400">
+          <button
+            onClick={() => {
+              let path = '/';
+              if (role === 'super_admin') path = '/admin';
+              else if (role === 'organization') path = '/institution';
+              else if (role === 'student' || role === 'employer') path = '/dashboard';
+              navigate(path);
+            }}
+            onDoubleClick={() => window.dispatchEvent(new CustomEvent('unicrypt-toggle-search'))}
+            className="flex items-center gap-2 text-lg font-bold text-blue-600 dark:text-blue-400 hover:scale-[1.03] active:scale-[0.98] transition-all duration-150 outline-none cursor-pointer group relative"
+          >
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-500/20">
               <FileCheck2 className="h-5 w-5" />
             </span>
             <span className="tracking-tight font-extrabold text-slate-900 dark:text-white">UniCrypt</span>
-          </div>
+            
+            {/* Tooltip */}
+            <span className="absolute left-1/2 -translate-x-1/2 top-full mt-2 scale-90 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-150 bg-slate-900 dark:bg-slate-800 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-lg pointer-events-none whitespace-nowrap z-50">
+              Go to Home
+            </span>
+          </button>
 
           <div className="hidden md:block">
             <GlobalSearch />
