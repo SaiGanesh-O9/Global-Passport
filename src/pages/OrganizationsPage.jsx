@@ -4,6 +4,7 @@ import OrganizationCard from '../components/organizations/OrganizationCard.jsx';
 import OrganizationSearch from '../components/organizations/OrganizationSearch.jsx';
 import OrganizationProfile from './OrganizationProfile.jsx';
 import Card from '../components/ui/Card.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
 
 export default function OrganizationsPage() {
   const { filteredOrganizations, selectedOrgId, setSelectedOrgId } = useOrganizations();
@@ -54,14 +55,12 @@ export default function OrganizationsPage() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-16 border-2 border-dashed border-slate-200 dark:border-slate-800/50 rounded-2xl bg-white dark:bg-[#12131a]/20">
-          <p className="text-sm text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
-            No matching institutions or programs found.
-          </p>
-          <p className="text-xs text-slate-400 mt-1 font-semibold">
-            Try adjusting your search filters or queries.
-          </p>
-        </div>
+        <EmptyState
+          title="No Organizations Found"
+          description="We couldn't find any accredited institutions matching your active search filters or query parameters."
+          actionLabel="Reset Category Filter"
+          onAction={() => setActiveCategory('All')}
+        />
       )}
     </div>
   );

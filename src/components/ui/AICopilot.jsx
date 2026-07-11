@@ -341,7 +341,7 @@ export default function AICopilot() {
         <div className="space-y-4">
           {messages.map(message => {
             const isAssistant = message.sender === 'ai';
-            return <div className={`flex flex-col ${isAssistant ? 'items-start' : 'items-end'}`} key={message.id}>
+            return <div className={`flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-300 ${isAssistant ? 'items-start' : 'items-end'}`} key={message.id}>
               <span className="mb-1 px-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">{isAssistant ? 'UniCrypt OS' : 'You'} · {message.timestamp}</span>
               <div className={`max-w-[94%] rounded-2xl px-3.5 py-3 text-xs leading-5 shadow-sm ${isAssistant ? 'border border-slate-200/80 bg-white/80 text-slate-700 dark:border-slate-800/80 dark:bg-[#151925]/90 dark:text-slate-200' : 'bg-blue-600 text-white'}`}>
                 {isAssistant ? <TypingMessage text={message.text} /> : <MarkdownContent text={message.text} />}

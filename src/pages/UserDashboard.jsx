@@ -10,6 +10,7 @@ import Card from '../components/ui/Card.jsx';
 import UniversalDocumentViewer from '../components/dashboard/UniversalDocumentViewer.jsx';
 import { FileText, LayoutDashboard, Settings, Upload, Mail, Search, Building2, CheckCircle2, Globe, ChevronRight, Shield, Activity, User, Clock, AlertCircle, FileCheck, Download, Eye } from 'lucide-react';
 import AIPreferences from '../components/ui/AIPreferences.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
 
 const OrganizationsPage = lazy(() => import('./OrganizationsPage.jsx'));
 
@@ -451,9 +452,23 @@ export default function UserDashboard() {
               );
             })
           ) : (
-            <p className="text-xs text-slate-450 font-bold py-12 text-center col-span-3 border-2 border-dashed border-slate-200/50 dark:border-slate-800/40 rounded-xl bg-white dark:bg-[#12131a]/40">
-              No credentials found in this vault category.
-            </p>
+            <div className="col-span-3">
+              <EmptyState
+                title="Empty Vault Category"
+                description="No matching credentials or verified records were found in this vault partition."
+                actionLabel="Upload New Document"
+                onAction={() => {
+                  window.dispatchEvent(
+                    new CustomEvent('unicrypt-ai-action', {
+                      detail: {
+                        type: 'OPEN_MODAL',
+                        modal: 'upload'
+                      }
+                    })
+                  );
+                }}
+              />
+            </div>
           )}
         </div>
       </div>

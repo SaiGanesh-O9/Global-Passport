@@ -273,8 +273,16 @@ export default function SidebarLayout({ children, navItems, subtitle, title }) {
 
                   <div className="divide-y divide-slate-100 dark:divide-slate-850 space-y-2">
                     {visibleNotifications.length === 0 ? (
-                      <div className="text-center py-6 text-slate-450 font-bold uppercase tracking-wider text-[10px]">
-                        🎉 You are all caught up!
+                      <div className="text-center py-8 px-4 flex flex-col items-center justify-center gap-2">
+                        <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-900/50 text-slate-400 dark:text-slate-500 mb-1 animate-[pulse_2s_infinite]">
+                          <Bell className="h-5 w-5" />
+                        </div>
+                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                          All caught up!
+                        </span>
+                        <span className="text-[9px] text-slate-500 leading-normal font-semibold max-w-[180px]">
+                          No unread platform alerts or verification updates.
+                        </span>
                       </div>
                     ) : (
                       visibleNotifications.map((notif) => {

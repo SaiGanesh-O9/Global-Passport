@@ -2,9 +2,12 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useOrganizations } from '../../context/OrganizationContext.jsx';
 import { useDocuments } from '../../hooks/useDocuments.js';
 import { organizationsData } from '../../data/organizations/index.js';
-import { Search, Building, BookOpen, FileText, Sparkles, Navigation, Command, ArrowRight } from 'lucide-react';
+import { Search, Building, BookOpen, FileText, Sparkles, Navigation, Command, ArrowRight, CornerDownLeft, Clock, Zap, X } from 'lucide-react';
 
-// Simple fuzzy matcher
+const RECENT_SEARCHES_KEY = 'unicrypt_recent_searches_v2';
+const MAX_RECENTS = 5;
+
+// Robust fuzzy matcher
 function fuzzyMatch(text, query) {
   if (!text || !query) return false;
   const t = String(text).toLowerCase();
@@ -29,11 +32,24 @@ export default function GlobalSearch() {
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [recentSearches, setRecentSearches] = useState([]);
 
   const containerRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Debounce query input (approx 200ms)
+  // Load recent searches from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(RECENT_SEARCHES_KEY);
+      if (stored) {
+        setRecentSearches(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error('Failed to load recent searches:', e);
+    }
+  }, []);
+
+  // Debounce search input (~200ms)
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedQuery(rawQuery);
@@ -41,57 +57,65 @@ export default function GlobalSearch() {
     return () => clearTimeout(handler);
   }, [rawQuery]);
 
-  // Ctrl+K / Cmd+K listener
+  // Keyboard listener for opening modal with Ctrl+K / Cmd+K
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
-        inputRef.current?.focus();
         setIsOpen(true);
+        setTimeout(() => inputRef.current?.focus(), 50);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Close dropdown on click outside
+  // Close command palette on click outside or routing
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [isOpen]);
 
-  // Hardcoded Static Pages for route indexing
+  // Prevent scroll when command palette is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
+  // Static Pages for route indexing
   const pages = useMemo(() => [
     { title: 'Dashboard Home', hash: '#dashboard', desc: 'Main dashboard view of verification requests.' },
     { title: 'Organizations Directory', hash: '#organizations', desc: 'Browse partner universities and companies.' },
     { title: 'Credential Vault', hash: '#vault', desc: 'Manage your verified documents and certificates.' },
     { title: 'Verification Requests Inbox', hash: '#requests', desc: 'View pending documents requested from institutions.' },
     { title: 'Recent Activity Logs', hash: '#activity', desc: 'Real-time status changes and verification history.' },
-    { title: 'User Settings & Platform Preferences', hash: '#settings', desc: 'Manage alerts, AI models, and preferences.' }
+    { title: 'User Settings & Preferences', hash: '#settings', desc: 'Manage alerts, AI models, and preferences.' }
   ], []);
 
-  // Hardcoded Static AI commands
-  const commands = useMemo(() => [
+  // Static Quick Action AI commands
+  const quickActions = useMemo(() => [
     { title: 'Compare My Profile', prompt: 'Compare my profile credentials against admission criteria.' },
     { title: 'Estimate Readiness', prompt: 'Estimate my readiness score with matching credentials.' },
     { title: 'Show Missing Documents', prompt: 'List all missing verification documents required.' },
-    { title: 'Application Timeline', prompt: 'Show application milestones and decision timelines.' },
-    { title: 'Scholarships Info', prompt: 'What active scholarships exist and how do I apply?' },
-    { title: 'Fees Breakdown', prompt: 'Explain the tuition breakdown and living costs.' },
-    { title: 'Explain Requirements', prompt: 'Explain the admission document requirements.' }
+    { title: 'Application Timeline', prompt: 'Show application milestones and decision timelines.' }
   ], []);
 
-  // Fetch all organizations data dynamically
-  const allOrganizations = useMemo(() => {
-    return Object.values(organizationsData);
-  }, []);
+  const allOrganizations = useMemo(() => Object.values(organizationsData), []);
 
-  // Build search results dynamically
+  // Filter and build results dynamically
   const resultsGrouped = useMemo(() => {
     if (!debouncedQuery.trim()) return {};
 
@@ -169,12 +193,12 @@ export default function GlobalSearch() {
       }));
 
     // 6. Matches Commands
-    const matchedCmds = commands
-      .filter(c => fuzzyMatch(c.title, c.prompt) || fuzzyMatch(c.title, q))
+    const matchedCmds = quickActions
+      .filter(c => fuzzyMatch(c.title, q) || fuzzyMatch(c.prompt, q))
       .map(c => ({
         type: 'command',
         title: c.title,
-        subtitle: `AI Prompt Shortcut: "${c.prompt}"`,
+        subtitle: `AI Prompt: "${c.prompt}"`,
         data: c
       }));
 
@@ -187,9 +211,9 @@ export default function GlobalSearch() {
     if (matchedCmds.length > 0) groups['AI Commands'] = matchedCmds;
 
     return groups;
-  }, [debouncedQuery, allOrganizations, documents, credentials, pages, commands]);
+  }, [debouncedQuery, allOrganizations, documents, credentials, pages, quickActions]);
 
-  // Flattened results for easy index tracking
+  // Flattened results for active selection index tracking
   const flattenedResults = useMemo(() => {
     const list = [];
     Object.entries(resultsGrouped).forEach(([groupName, items]) => {
@@ -200,14 +224,30 @@ export default function GlobalSearch() {
     return list;
   }, [resultsGrouped]);
 
-  // Reset selected active item index on query change
+  // Reset index on search updates
   useEffect(() => {
     setActiveIndex(0);
   }, [debouncedQuery]);
 
-  // Handle result selection / click
+  // Save search query to localStorage
+  const saveSearch = (searchVal) => {
+    if (!searchVal || !searchVal.trim()) return;
+    const trimmed = searchVal.trim();
+    const updated = [trimmed, ...recentSearches.filter(s => s !== trimmed)].slice(0, MAX_RECENTS);
+    setRecentSearches(updated);
+    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
+  };
+
+  const clearRecents = (e) => {
+    e.stopPropagation();
+    setRecentSearches([]);
+    localStorage.removeItem(RECENT_SEARCHES_KEY);
+  };
+
+  // Perform navigation or selection on item select
   const selectItem = (item) => {
     setIsOpen(false);
+    saveSearch(rawQuery);
     setRawQuery('');
 
     if (item.type === 'org') {
@@ -221,18 +261,14 @@ export default function GlobalSearch() {
     } else if (item.type === 'page') {
       window.location.hash = item.data.hash;
     } else if (item.type === 'document') {
-      // Switch to vault tab and focus file
       window.location.hash = '#vault';
     } else if (item.type === 'command') {
-      // Trigger AI Copilot prompt injection
       window.dispatchEvent(new CustomEvent('unicrypt-os-prompt', { detail: { prompt: item.data.prompt } }));
     }
   };
 
-  // Keyboard navigation
+  // Keyboard navigation handler
   const handleKeyDown = (e) => {
-    if (!isOpen) return;
-
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setActiveIndex(prev => (prev + 1) % (flattenedResults.length || 1));
@@ -244,8 +280,8 @@ export default function GlobalSearch() {
       if (flattenedResults[activeIndex]) {
         selectItem(flattenedResults[activeIndex]);
       } else if (rawQuery.trim()) {
-        // Fallback: Ask User AI
         setIsOpen(false);
+        saveSearch(rawQuery);
         window.dispatchEvent(new CustomEvent('unicrypt-os-prompt', { detail: { prompt: rawQuery.trim() } }));
         setRawQuery('');
       }
@@ -256,101 +292,259 @@ export default function GlobalSearch() {
   };
 
   return (
-    <div ref={containerRef} className="relative w-48 md:w-64 z-50">
-      {/* Input query field */}
-      <div className="relative">
-        <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400 dark:text-slate-500 pointer-events-none" />
-        <input
-          ref={inputRef}
-          type="text"
-          placeholder="Global Search... (Ctrl+K)"
-          value={rawQuery}
-          onChange={(e) => {
-            setRawQuery(e.target.value);
-            setIsOpen(true);
-          }}
-          onFocus={() => setIsOpen(true)}
-          onKeyDown={handleKeyDown}
-          className="pl-8.5 pr-3 py-1.5 w-full text-[11px] font-semibold text-slate-900 dark:text-slate-200 border border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-900/40 rounded-xl outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
-        />
-      </div>
+    <div className="relative">
+      {/* Trigger Search Button (Apple/Linear style) */}
+      <button
+        onClick={() => {
+          setIsOpen(true);
+          setTimeout(() => inputRef.current?.focus(), 50);
+        }}
+        className="flex items-center gap-2 pl-3 pr-2 py-1.5 w-40 md:w-56 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 border border-slate-200/80 dark:border-slate-850/60 bg-white/50 dark:bg-slate-900/20 rounded-xl hover:border-slate-350 dark:hover:border-slate-700 hover:bg-white dark:hover:bg-slate-900/40 transition-all duration-200 active:scale-[0.98] outline-none group"
+      >
+        <Search className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-500 transition-colors" />
+        <span className="flex-1 text-left">Search...</span>
+        <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[8px] bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded text-slate-400 dark:text-slate-500 font-sans tracking-normal">
+          ⌘K
+        </kbd>
+      </button>
 
-      {/* Floating Dropdown Results Panel */}
-      {isOpen && rawQuery.trim() !== '' && (
-        <div className="absolute right-0 top-full mt-2 w-80 md:w-96 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-[#12131a]/95 backdrop-blur-md shadow-xl overflow-hidden max-h-[380px] overflow-y-auto z-50 transition-theme animate-slide-in">
-          {flattenedResults.length > 0 ? (
-            <div className="p-2 space-y-3.5">
-              {Object.entries(resultsGrouped).map(([groupName, items]) => (
-                <div key={groupName} className="space-y-1">
-                  <span className="px-2.5 py-1 text-[8px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
-                    {groupName}
-                  </span>
+      {/* Large Floating Command Palette Modal */}
+      {isOpen && (
+        <div ref={containerRef} className="fixed inset-0 z-[9999] flex items-start justify-center pt-[12vh] px-4">
+          {/* Backdrop Blur overlay */}
+          <div 
+            className="absolute inset-0 bg-slate-950/60 dark:bg-black/75 backdrop-blur-md transition-opacity duration-300 animate-in fade-in"
+            onClick={() => setIsOpen(false)}
+          />
 
-                  <div className="space-y-0.5">
-                    {items.map((item) => {
-                      // Calculate global index matching active select highlight
-                      const globalIdx = flattenedResults.findIndex(r => r.title === item.title && r.type === item.type);
-                      const isHighlighted = globalIdx === activeIndex;
+          {/* Modal Container */}
+          <div className="relative w-full max-w-2xl bg-white/95 dark:bg-[#0f111a]/95 border border-slate-200/80 dark:border-slate-855/80 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-lg flex flex-col max-h-[70vh] animate-in fade-in zoom-in-95 duration-200 z-10">
+            
+            {/* Header Query Input Bar */}
+            <div className="relative flex items-center border-b border-slate-100 dark:border-slate-850">
+              <Search className="absolute left-4 h-4 w-4 text-slate-400 dark:text-slate-500" />
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder="Search organizations, programs, requirements, vault documents, or commands..."
+                value={rawQuery}
+                onChange={(e) => setRawQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="w-full bg-transparent py-4.5 pl-12 pr-16 text-[13px] font-bold text-slate-900 dark:text-white outline-none placeholder-slate-400 dark:placeholder-slate-500"
+              />
+              
+              <div className="absolute right-4 flex items-center gap-2">
+                <span className="hidden sm:inline-block px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-wide bg-slate-100 dark:bg-slate-850 border border-slate-200 dark:border-slate-700/80 rounded text-slate-400 dark:text-slate-500">
+                  ESC
+                </span>
+                <button 
+                  onClick={() => setIsOpen(false)}
+                  className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-850 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
 
-                      let icon = <Navigation className="h-3.5 w-3.5 text-slate-400" />;
-                      if (item.type === 'org') icon = <Building className="h-3.5 w-3.5 text-blue-500" />;
-                      if (item.type === 'program') icon = <BookOpen className="h-3.5 w-3.5 text-emerald-500" />;
-                      if (item.type === 'document') icon = <FileText className="h-3.5 w-3.5 text-amber-500" />;
-                      if (item.type === 'command') icon = <Command className="h-3.5 w-3.5 text-pink-500" />;
-
-                      return (
-                        <div
-                          key={globalIdx}
-                          onClick={() => selectItem(item)}
-                          className={`flex items-start gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-colors ${
-                            isHighlighted
-                              ? 'bg-blue-600/10 dark:bg-blue-600/15 border-l-2 border-blue-600'
-                              : 'hover:bg-slate-50 dark:hover:bg-slate-900/50'
-                          }`}
+            {/* Results Panel */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-4 max-h-[45vh] transition-all">
+              
+              {/* Default State: When Query is Empty */}
+              {rawQuery.trim() === '' && (
+                <div className="space-y-4">
+                  {/* Recent Searches */}
+                  {recentSearches.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between px-2.5">
+                        <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          Recent Searches
+                        </span>
+                        <button 
+                          onClick={clearRecents}
+                          className="text-[9px] font-bold text-blue-500 hover:text-blue-600 cursor-pointer"
                         >
-                          <span className="mt-0.5 shrink-0">{icon}</span>
+                          Clear
+                        </button>
+                      </div>
+                      <div className="space-y-0.5">
+                        {recentSearches.map((search, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => setRawQuery(search)}
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-900/50 cursor-pointer text-slate-700 dark:text-slate-305 transition-colors"
+                          >
+                            <Search className="h-3.5 w-3.5 text-slate-400" />
+                            <span className="text-[11px] font-bold">{search}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Quick Action Shortcuts */}
+                  <div className="space-y-1.5">
+                    <span className="px-2.5 text-[9px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                      <Zap className="h-3 w-3" />
+                      Quick AI Actions
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      {quickActions.map((act, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            setIsOpen(false);
+                            window.dispatchEvent(new CustomEvent('unicrypt-os-prompt', { detail: { prompt: act.prompt } }));
+                          }}
+                          className="flex items-center gap-2.5 px-3 py-3 rounded-xl border border-slate-100 dark:border-slate-850/60 bg-slate-50/50 dark:bg-slate-900/10 hover:bg-blue-500/5 hover:border-blue-500/20 cursor-pointer transition-all active:scale-[0.98]"
+                        >
+                          <Sparkles className="h-3.5 w-3.5 text-pink-500 shrink-0" />
                           <div className="min-w-0">
-                            <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                              {item.title}
+                            <p className="text-[11px] font-bold text-slate-900 dark:text-white truncate">
+                              {act.title}
                             </p>
-                            <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                              {item.subtitle}
+                            <p className="text-[9px] text-slate-500 dark:text-slate-450 truncate mt-0.5">
+                              {act.prompt}
                             </p>
                           </div>
                         </div>
-                      );
-                    })}
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* System Navigation Pages */}
+                  <div className="space-y-1.5">
+                    <span className="px-2.5 text-[9px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                      <Navigation className="h-3 w-3" />
+                      Navigation Shortcuts
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      {pages.map((p, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            setIsOpen(false);
+                            window.location.hash = p.hash;
+                          }}
+                          className="flex items-center gap-2.5 px-3 py-3 rounded-xl border border-slate-100 dark:border-slate-855/60 bg-slate-50/50 dark:bg-slate-900/10 hover:bg-blue-500/5 hover:border-blue-500/20 cursor-pointer transition-all active:scale-[0.98]"
+                        >
+                          <Navigation className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-bold text-slate-900 dark:text-white truncate">
+                              {p.title}
+                            </p>
+                            <p className="text-[9px] text-slate-500 dark:text-slate-450 truncate mt-0.5">
+                              {p.desc}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            // No Results State offering Ask User AI query shortcut
-            <div className="p-4 text-center space-y-3">
-              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
-                No results found
-              </p>
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  window.dispatchEvent(new CustomEvent('unicrypt-os-prompt', { detail: { prompt: rawQuery.trim() } }));
-                  setRawQuery('');
-                }}
-                className="w-full flex items-center justify-between p-3 rounded-lg border border-dashed border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10 cursor-pointer text-left transition-colors group outline-none"
-              >
-                <div className="min-w-0">
-                  <span className="text-[9px] font-extrabold uppercase text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" />
-                    Ask User AI
-                  </span>
-                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate mt-1">
-                    "{rawQuery.trim()}"
-                  </p>
+              )}
+
+              {/* Grouped Dynamic Search Results */}
+              {rawQuery.trim() !== '' && flattenedResults.length > 0 && (
+                <div className="space-y-3.5">
+                  {Object.entries(resultsGrouped).map(([groupName, items]) => (
+                    <div key={groupName} className="space-y-1">
+                      <span className="px-2.5 py-1 text-[8.5px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
+                        {groupName}
+                      </span>
+                      <div className="space-y-0.5">
+                        {items.map((item) => {
+                          const globalIdx = flattenedResults.findIndex(r => r.title === item.title && r.type === item.type);
+                          const isHighlighted = globalIdx === activeIndex;
+
+                          let icon = <Navigation className="h-4 w-4 text-slate-455" />;
+                          if (item.type === 'org') icon = <Building className="h-4 w-4 text-blue-500" />;
+                          if (item.type === 'program') icon = <BookOpen className="h-4 w-4 text-emerald-500" />;
+                          if (item.type === 'document') icon = <FileText className="h-4 w-4 text-amber-500" />;
+                          if (item.type === 'command') icon = <Command className="h-4 w-4 text-pink-500" />;
+
+                          return (
+                            <div
+                              key={globalIdx}
+                              onClick={() => selectItem(item)}
+                              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl cursor-pointer transition-all active:scale-[0.99] border-l-2 ${
+                                isHighlighted
+                                  ? 'bg-blue-600/10 dark:bg-blue-600/15 border-blue-600 text-blue-900 dark:text-white'
+                                  : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-900/40 text-slate-800 dark:text-slate-350'
+                              }`}
+                            >
+                              <span className="shrink-0">{icon}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold truncate">{item.title}</p>
+                                <p className="text-[10px] text-slate-505 dark:text-slate-450 truncate mt-0.5">
+                                  {item.subtitle}
+                                </p>
+                              </div>
+                              {isHighlighted && (
+                                <CornerDownLeft className="h-3.5 w-3.5 text-blue-500 shrink-0 opacity-80 animate-pulse" />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <ArrowRight className="h-4 w-4 text-blue-500 shrink-0 group-hover:translate-x-0.5 transition-transform" />
-              </button>
+              )}
+
+              {/* Empty / Zero-Matches State */}
+              {rawQuery.trim() !== '' && flattenedResults.length === 0 && (
+                <div className="p-8 text-center space-y-4">
+                  <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                    No results found
+                  </p>
+                  
+                  <button
+                    onClick={() => {
+                      setIsOpen(false);
+                      saveSearch(rawQuery);
+                      window.dispatchEvent(new CustomEvent('unicrypt-os-prompt', { detail: { prompt: rawQuery.trim() } }));
+                      setRawQuery('');
+                    }}
+                    className="mx-auto w-full max-w-sm flex items-center justify-between p-3.5 rounded-xl border border-dashed border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10 cursor-pointer text-left transition-all active:scale-[0.98] group outline-none shadow-sm"
+                  >
+                    <div className="min-w-0">
+                      <span className="text-[9px] font-extrabold uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Ask User AI
+                      </span>
+                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate mt-1">
+                        "{rawQuery.trim()}"
+                      </p>
+                    </div>
+                    <ArrowRight className="h-4.5 w-4.5 text-blue-500 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  </button>
+                </div>
+              )}
             </div>
-          )}
+
+            {/* Footer Commands Helper Layout */}
+            <div className="border-t border-slate-100 dark:border-slate-850 px-4 py-3 bg-slate-50/50 dark:bg-slate-900/10 flex items-center justify-between text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1">
+                  <kbd className="px-1 py-0.2 bg-white dark:bg-slate-850 border dark:border-slate-700 rounded shadow-sm text-[8px]">↑↓</kbd>
+                  Navigate
+                </span>
+                <span className="flex items-center gap-1">
+                  <kbd className="px-1 py-0.2 bg-white dark:bg-slate-850 border dark:border-slate-700 rounded shadow-sm text-[8px]">Enter</kbd>
+                  Select
+                </span>
+                <span className="flex items-center gap-1">
+                  <kbd className="px-1 py-0.2 bg-white dark:bg-slate-850 border dark:border-slate-700 rounded shadow-sm text-[8px]">Esc</kbd>
+                  Close
+                </span>
+              </div>
+              <div>
+                UniCrypt Command Center
+              </div>
+            </div>
+
+          </div>
         </div>
       )}
     </div>

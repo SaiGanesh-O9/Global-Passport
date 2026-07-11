@@ -30,12 +30,12 @@ export default function SimilarOrganizations({ currentOrg, onOrgSelect }) {
   if (similarList.length === 0) return null;
 
   return (
-    <div className="space-y-4 pt-6 border-t border-slate-200 dark:border-slate-800/40">
+    <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-extrabold text-slate-950 dark:text-white uppercase tracking-wider">
+        <h3 className="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-widest">
           Similar Institutions
         </h3>
-        <p className="text-[10px] text-slate-500 mt-0.5 font-semibold">
+        <p className="text-[9px] text-slate-500 mt-0.5 font-bold uppercase tracking-wider">
           Explore similar certified organizations and verification providers.
         </p>
       </div>

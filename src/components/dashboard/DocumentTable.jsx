@@ -7,6 +7,7 @@ import Button from '../ui/Button.jsx';
 import Card from '../ui/Card.jsx';
 import StatusBadge from '../ui/StatusBadge.jsx';
 import UploadDocumentModal from './UploadDocumentModal.jsx';
+import EmptyState from '../ui/EmptyState.jsx';
 
 
 
@@ -132,8 +133,19 @@ export default function DocumentTable() {
     });
   }, [userVerificationRequests, searchQuery, statusFilter]);
 
+  if (filteredRequests.length === 0 && !loading) {
+    return (
+      <EmptyState
+        title="No Verification Requests"
+        description="You do not have any verification requests. Explore partner organizations or submit credentials to get started."
+        actionLabel="Explore Organizations"
+        onAction={() => { window.location.hash = '#organizations'; }}
+      />
+    );
+  }
+
   return (
-    <Card className="overflow-hidden bg-white dark:bg-[#12131a] border border-slate-200 dark:border-slate-800/40">
+    <Card className="overflow-hidden bg-white/70 dark:bg-[#0f111a]/60 border border-slate-200/80 dark:border-slate-850/60 shadow-sm">
       <div className="border-b border-slate-200/80 dark:border-slate-800/50 px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-sm font-bold text-slate-950 dark:text-white uppercase tracking-wider">My Verification Requests</h2>
