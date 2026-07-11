@@ -67,7 +67,33 @@ function ActivityFeed() {
 }
 
 export default function UserDashboard() {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
+
+  const getGreeting = () => {
+    const hrs = new Date().getHours();
+    let greet = 'Welcome';
+    if (hrs < 12) greet = 'Good Morning';
+    else if (hrs < 18) greet = 'Good Afternoon';
+    else greet = 'Good Evening';
+
+    let name = '';
+    if (currentUser?.displayName) {
+      name = currentUser.displayName.split(' ')[0];
+    } else if (userProfile?.firstName) {
+      name = userProfile.firstName;
+    } else if (userProfile?.name) {
+      name = userProfile.name.split(' ')[0];
+    } else if (currentUser?.email) {
+      const emailPrefix = currentUser.email.split('@')[0];
+      const cleanPrefix = emailPrefix.split(/[._-]/)[0];
+      name = cleanPrefix.charAt(0).toUpperCase() + cleanPrefix.slice(1);
+    }
+
+    if (name) {
+      return `${greet}, ${name}`;
+    }
+    return greet;
+  };
   const {
     userVerificationRequests,
     organizationProfiles,
@@ -187,7 +213,7 @@ export default function UserDashboard() {
             Secure Workspace
           </span>
           <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            Welcome Back, Student
+            {getGreeting()}
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 font-semibold leading-relaxed max-w-2xl">
             Monitor verified credentials, pending institutional actions, and browse accredited partner organizations.

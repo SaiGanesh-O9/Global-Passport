@@ -43,6 +43,32 @@ export const institutionNavItems = [
 
 export default function InstitutionDashboard() {
   const { currentUser, userProfile } = useAuth();
+
+  const getGreeting = () => {
+    const hrs = new Date().getHours();
+    let greet = 'Welcome';
+    if (hrs < 12) greet = 'Good Morning';
+    else if (hrs < 18) greet = 'Good Afternoon';
+    else greet = 'Good Evening';
+
+    let name = '';
+    if (currentUser?.displayName) {
+      name = currentUser.displayName.split(' ')[0];
+    } else if (userProfile?.firstName) {
+      name = userProfile.firstName;
+    } else if (userProfile?.name) {
+      name = userProfile.name.split(' ')[0];
+    } else if (currentUser?.email) {
+      const emailPrefix = currentUser.email.split('@')[0];
+      const cleanPrefix = emailPrefix.split(/[._-]/)[0];
+      name = cleanPrefix.charAt(0).toUpperCase() + cleanPrefix.slice(1);
+    }
+
+    if (name) {
+      return `${greet}, ${name}`;
+    }
+    return greet;
+  };
   const {
     metrics,
     verificationRequests,
@@ -290,8 +316,8 @@ export default function InstitutionDashboard() {
             <p className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
               Overview Dashboard
             </p>
-            <h1 className="mt-2 text-2xl sm:text-3xl font-extrabold text-slate-950 dark:text-white tracking-tight">
-              {orgProfile.name} Verification Hub
+            <h1 className="mt-2 text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              {getGreeting()} — {orgProfile.name} Verification Hub
             </h1>
           </div>
           <button
