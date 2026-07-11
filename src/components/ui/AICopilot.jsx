@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  Bot, BrainCircuit, CheckSquare, ChevronLeft, ClipboardList, Code2, Copy,
-  FileText, PanelRightClose, PanelRightOpen, Send, Settings2, Trash2
+  MessageSquare, CheckSquare, FileText, BrainCircuit, Settings2,
+  PanelRightClose, PanelRightOpen, Send, Trash2, Code2, Copy,
+  Paperclip, Camera, Mic, Loader2, Sparkles, Activity, Clock, ShieldCheck
 } from 'lucide-react';
 import { askAI } from '../../ai/gateway/index.js';
 import { clearSessionMemory } from '../../ai/context/conversationMemory.js';
@@ -17,7 +18,7 @@ const STORAGE_KEYS = {
 };
 
 const PANEL_TABS = [
-  { id: 'assistant', label: 'Assistant', icon: Bot },
+  { id: 'assistant', label: 'User AI', icon: MessageSquare },
   { id: 'tasks', label: 'Tasks', icon: CheckSquare },
   { id: 'documents', label: 'Documents', icon: FileText },
   { id: 'memory', label: 'Memory', icon: BrainCircuit },
@@ -28,7 +29,7 @@ function getWelcomeMessage() {
   return {
     id: 'welcome',
     sender: 'ai',
-    text: 'Hello — I am **UniCrypt OS**. I can help you understand your workspace, review verification activity, and guide your next action.',
+    text: '### Summary\nI am **UniCrypt OS**. I have verified a secure connection to the decentralized keys vault.\n### Analysis\nYour workspace is active and awaiting credential indexing.\n### Recommendation\nChoose a capability below or upload academic documents to begin the verification checks.',
     timestamp: new Date().toLocaleTimeString()
   };
 }
@@ -62,7 +63,7 @@ function CodeBlock({ code }) {
     <div className="my-3 overflow-hidden rounded-xl border border-slate-700/70 bg-[#10131d] shadow-inner">
       <div className="flex items-center justify-between border-b border-slate-700/70 px-3 py-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">
         <span className="flex items-center gap-1.5"><Code2 className="h-3 w-3" /> Code</span>
-        <button onClick={copy} className="flex items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-white/10" type="button">
+        <button onClick={copy} className="flex items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-white/10 cursor-pointer" type="button">
           <Copy className="h-3 w-3" /> {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
@@ -91,9 +92,9 @@ function MarkdownContent({ text }) {
         }
         lineIndex -= 1;
         blocks.push(
-          <div className="my-3 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800" key={`table-${lineIndex}`}>
+          <div className="my-3 overflow-x-auto rounded-xl border border-slate-205 dark:border-slate-800" key={`table-${lineIndex}`}>
             <table className="w-full text-left text-[10px]">
-              <thead className="bg-slate-100 dark:bg-slate-900/70 text-slate-600 dark:text-slate-300"><tr>{headers.map(header => <th className="px-2.5 py-2 font-bold" key={header}>{renderInline(header)}</th>)}</tr></thead>
+              <thead className="bg-slate-100 dark:bg-slate-900/70 text-slate-655 dark:text-slate-350"><tr>{headers.map(header => <th className="px-2.5 py-2 font-bold" key={header}>{renderInline(header)}</th>)}</tr></thead>
               <tbody>{rows.map((row, rowIndex) => <tr className="border-t border-slate-100 dark:border-slate-800" key={rowIndex}>{row.map((cell, cellIndex) => <td className="px-2.5 py-2" key={cellIndex}>{renderInline(cell)}</td>)}</tr>)}</tbody>
             </table>
           </div>
@@ -126,13 +127,46 @@ function TypingMessage({ text }) {
   return <MarkdownContent text={text.slice(0, visibleLength)} />;
 }
 
-function Placeholder({ icon: Icon, title, description, items }) {
+// Parser to split response text into clean cards
+function parseStructuredResponse(text) {
+  const sections = {
+    summary: '',
+    analysis: '',
+    recommendation: '',
+    nextStep: ''
+  };
+
+  const parts = text.split(/(###?\s*(?:Summary|Analysis|Recommendation|Next Step|Next Steps)[:*]*|\*\*(?:Summary|Analysis|Recommendation|Next Step|Next Steps)[:*]*\*\*)/gi);
+  if (parts.length <= 1) return null;
+
+  let currentKey = 'summary';
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    const lowerPart = part.toLowerCase();
+    if (lowerPart.includes('summary')) {
+      currentKey = 'summary';
+    } else if (lowerPart.includes('analysis')) {
+      currentKey = 'analysis';
+    } else if (lowerPart.includes('recommendation')) {
+      currentKey = 'recommendation';
+    } else if (lowerPart.includes('next step') || lowerPart.includes('next steps')) {
+      currentKey = 'nextStep';
+    } else {
+      sections[currentKey] += part;
+    }
+  }
+
+  return sections;
+}
+
+function Placeholder({ icon, title, description, items }) {
+  const IconComponent = icon;
   return (
     <div className="m-4 rounded-2xl border border-slate-200/70 bg-white/50 p-5 text-center shadow-sm dark:border-slate-800/70 dark:bg-slate-950/20">
-      <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400"><Icon className="h-5 w-5" /></span>
+      <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400"><IconComponent className="h-5 w-5" /></span>
       <h3 className="mt-3 text-sm font-extrabold text-slate-900 dark:text-white">{title}</h3>
       <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{description}</p>
-      <div className="mt-4 space-y-2 text-left">{items.map(item => <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-[10px] font-semibold text-slate-600 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300" key={item}>{item}</div>)}</div>
+      <div className="mt-4 space-y-2 text-left">{items.map(item => <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-[10px] font-semibold text-slate-600 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-350" key={item}>{item}</div>)}</div>
     </div>
   );
 }
@@ -152,12 +186,26 @@ export default function AICopilot() {
   const textareaRef = useRef(null);
   const resizingRef = useRef(false);
 
+  // Rotating processing logs state
+  const [thinkingIndex, setThinkingIndex] = useState(0);
+  const thinkingLogs = ['Analyzing workspace...', 'Comparing documents...', 'Checking checklists...', 'Structuring recommendations...'];
+
+  useEffect(() => {
+    if (!loading) return;
+    const interval = setInterval(() => {
+      setThinkingIndex(idx => (idx + 1) % thinkingLogs.length);
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [loading]);
+
   const role = userProfile?.role || 'student';
-  const suggestions = role === 'super_admin'
-    ? ['Show recent overrides.', 'Summarize platform activity.', 'Which organizations are inactive?']
-    : role === 'organization'
-      ? ['Summarize pending requests.', 'Which applications need review?', 'Show incomplete submissions.']
-      : ['What documents are missing?', 'Can I reuse my passport?', 'Explain my request status.'];
+  const quickCapabilities = [
+    { label: 'Compare My Profile', prompt: 'Compare my profile credentials against Stanford criteria.' },
+    { label: 'Check Confidence', prompt: 'Estimate my overall application confidence score.' },
+    { label: 'Explain Requirements', prompt: 'Explain the admission document prerequisites.' },
+    { label: 'Summarize Document', prompt: 'Give me a brief summary of my uploaded documents.' },
+    { label: 'Upload Credential', action: 'upload' }
+  ];
 
   const contextLabel = useMemo(() => {
     const request = documentsState.selectedRequest;
@@ -260,7 +308,7 @@ export default function AICopilot() {
     const textarea = textareaRef.current;
     if (!textarea) return;
     textarea.style.height = 'auto';
-    textarea.style.height = `${Math.min(textarea.scrollHeight, 136)}px`;
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
   };
 
   const beginResize = event => {
@@ -335,53 +383,244 @@ export default function AICopilot() {
     localStorage.removeItem(STORAGE_KEYS.scroll);
   };
 
+  const handleCapabilityClick = (cap) => {
+    if (cap.action === 'upload') {
+      window.dispatchEvent(
+        new CustomEvent('unicrypt-ai-action', {
+          detail: {
+            type: 'OPEN_MODAL',
+            modal: 'upload'
+          }
+        })
+      );
+    } else {
+      window.dispatchEvent(new CustomEvent('unicrypt-os-prompt', { detail: { prompt: cap.prompt } }));
+    }
+  };
+
   const assistantContent = (
     <>
       <div className="flex-1 overflow-y-auto px-4 py-4" onScroll={event => localStorage.setItem(STORAGE_KEYS.scroll, String(event.currentTarget.scrollTop))} ref={scrollRef}>
-        <div className="space-y-4">
+        <div className="space-y-6">
           {messages.map(message => {
             const isAssistant = message.sender === 'ai';
-            return <div className={`flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-300 ${isAssistant ? 'items-start' : 'items-end'}`} key={message.id}>
-              <span className="mb-1 px-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">{isAssistant ? 'UniCrypt OS' : 'You'} · {message.timestamp}</span>
-              <div className={`max-w-[94%] rounded-2xl px-3.5 py-3 text-xs leading-5 shadow-sm ${isAssistant ? 'border border-slate-200/80 bg-white/80 text-slate-700 dark:border-slate-800/80 dark:bg-[#151925]/90 dark:text-slate-200' : 'bg-blue-600 text-white'}`}>
-                {isAssistant ? <TypingMessage text={message.text} /> : <MarkdownContent text={message.text} />}
-                {isAssistant && message.citations?.length > 0 && <div className="mt-3 flex flex-wrap gap-1 border-t border-slate-100 pt-2 dark:border-slate-800">{message.citations.map(citation => <a className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-bold text-blue-600 dark:text-blue-400" href={citation.url} key={citation.url} rel="noreferrer" target="_blank">{citation.title}</a>)}</div>}
-                {import.meta.env.DEV && isAssistant && message.provider !== 'none' && <div className="mt-2 border-t border-slate-100 pt-2 text-[9px] font-bold text-slate-400 dark:border-slate-800">{message.provider} · {message.model}</div>}
+            const parsed = isAssistant ? parseStructuredResponse(message.text) : null;
+
+            return (
+              <div className="space-y-1.5" key={message.id}>
+                <span className="px-1 text-[8px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  {isAssistant ? 'User AI' : 'You'} · {message.timestamp}
+                </span>
+
+                {isAssistant ? (
+                  parsed ? (
+                    <div className="space-y-3.5">
+                      {parsed.summary.trim() && (
+                        <div className="p-4 bg-white/70 dark:bg-[#0f111a]/60 border border-slate-200/80 dark:border-slate-850/60 shadow-sm rounded-2xl relative overflow-hidden">
+                          <h4 className="text-[9px] font-extrabold uppercase text-blue-600 dark:text-blue-400 tracking-widest mb-2">Summary</h4>
+                          <div className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed font-semibold">
+                            <MarkdownContent text={parsed.summary.trim()} />
+                          </div>
+                        </div>
+                      )}
+                      {parsed.analysis.trim() && (
+                        <div className="p-4 bg-white/70 dark:bg-[#0f111a]/60 border border-slate-200/80 dark:border-slate-850/60 shadow-sm rounded-2xl relative overflow-hidden">
+                          <h4 className="text-[9px] font-extrabold uppercase text-indigo-500 dark:text-indigo-400 tracking-widest mb-2">Analysis</h4>
+                          <div className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed font-semibold">
+                            <MarkdownContent text={parsed.analysis.trim()} />
+                          </div>
+                        </div>
+                      )}
+                      {parsed.recommendation.trim() && (
+                        <div className="p-4 bg-gradient-to-br from-emerald-500/5 to-transparent border border-emerald-500/10 dark:border-emerald-500/10 rounded-2xl relative overflow-hidden">
+                          <h4 className="text-[9px] font-extrabold uppercase text-emerald-600 dark:text-emerald-400 tracking-widest mb-2">Recommendation</h4>
+                          <div className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed font-semibold">
+                            <MarkdownContent text={parsed.recommendation.trim()} />
+                          </div>
+                        </div>
+                      )}
+                      {parsed.nextStep.trim() && (
+                        <div className="p-4 bg-gradient-to-br from-amber-500/5 to-transparent border border-amber-500/10 dark:border-amber-500/10 rounded-2xl relative overflow-hidden">
+                          <h4 className="text-[9px] font-extrabold uppercase text-amber-600 dark:text-amber-500 tracking-widest mb-2">Next Step</h4>
+                          <div className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed font-semibold">
+                            <MarkdownContent text={parsed.nextStep.trim()} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-white/70 dark:bg-[#0f111a]/60 border border-slate-200/80 dark:border-slate-850/60 shadow-sm rounded-2xl relative overflow-hidden text-xs text-slate-700 dark:text-slate-200 leading-relaxed font-semibold">
+                      <MarkdownContent text={message.text} />
+                    </div>
+                  )
+                ) : (
+                  <div className="p-4 bg-blue-650 text-white shadow-sm rounded-2xl ml-auto max-w-[85%] text-xs font-semibold leading-relaxed">
+                    <MarkdownContent text={message.text} />
+                  </div>
+                )}
               </div>
-            </div>;
+            );
           })}
-          {loading && <div className="space-y-2"><span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">UniCrypt OS is thinking</span><div className="shimmer-bg h-16 w-4/5 rounded-2xl" /></div>}
+
+          {loading && (
+            <div className="p-4 bg-white/70 dark:bg-[#0f111a]/60 border border-slate-200/80 dark:border-slate-850/60 rounded-2xl flex items-center gap-3 animate-pulse">
+              <Loader2 className="h-4.5 w-4.5 text-blue-600 animate-spin shrink-0" />
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                {thinkingLogs[thinkingIndex]}
+              </span>
+            </div>
+          )}
         </div>
       </div>
-      <div className="border-t border-slate-200/80 bg-white/70 p-3 backdrop-blur dark:border-slate-800/80 dark:bg-[#11141e]/85">
-        <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1">{suggestions.map(suggestion => <button className="whitespace-nowrap rounded-full border border-blue-500/15 bg-blue-500/5 px-2 py-1 text-[9px] font-bold text-blue-600 transition hover:bg-blue-500/10 dark:text-blue-300" key={suggestion} onClick={() => { setInput(suggestion); requestAnimationFrame(updateTextarea); }} type="button">{suggestion}</button>)}</div>
-        <form className="flex items-end gap-2" onSubmit={sendMessage}>
-          <textarea className="max-h-[136px] min-h-[42px] flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-100" disabled={loading} onChange={event => { setInput(event.target.value); updateTextarea(); }} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); } }} placeholder="Ask UniCrypt OS…" ref={textareaRef} value={input} />
-          <button className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40" disabled={loading || !input.trim()} type="submit"><Send className="h-4 w-4" /></button>
+
+      {/* Floating glassmorphism OS inputs panel */}
+      <div className="border-t border-slate-200/80 bg-slate-50/80 p-4 backdrop-blur-md dark:border-slate-850/60 dark:bg-[#090a0f]/80 space-y-4">
+        
+        {/* Capability Cards (Quick actions instead of prompt chips) */}
+        {messages.length <= 1 && (
+          <div className="space-y-2">
+            <span className="text-[8px] font-extrabold uppercase text-slate-400 dark:text-slate-500 tracking-wider block">
+              Capabilities
+            </span>
+            <div className="grid gap-2 grid-cols-2">
+              {quickCapabilities.map((cap) => (
+                <button
+                  key={cap.label}
+                  onClick={() => handleCapabilityClick(cap)}
+                  className="p-3 bg-white/70 dark:bg-[#0f111a]/60 border border-slate-200/80 dark:border-slate-850/60 rounded-xl hover:border-blue-500/30 hover:shadow-sm text-[10px] font-extrabold text-left text-slate-800 dark:text-slate-200 cursor-pointer active:scale-95 outline-none transition-all leading-snug"
+                >
+                  {cap.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <form className="relative rounded-2xl border border-slate-200/80 bg-white/70 backdrop-blur-md p-2.5 focus-within:border-blue-500/50 focus-within:ring-2 focus-within:ring-blue-500/10 transition-all dark:border-slate-850/60 dark:bg-[#0f111a]/60 shadow-lg" onSubmit={sendMessage}>
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={event => { setInput(event.target.value); updateTextarea(); }}
+            onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); } }}
+            placeholder="Ask UniCrypt OS..."
+            className="w-full bg-transparent resize-none outline-none border-none text-xs text-slate-800 dark:text-slate-100 max-h-[120px] min-h-[42px] leading-relaxed"
+            disabled={loading}
+          />
+          <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/50 dark:border-slate-850/50">
+            <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500">
+              <button type="button" className="p-1 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-lg transition-colors outline-none cursor-pointer"><Paperclip className="h-4 w-4" /></button>
+              <button type="button" className="p-1 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-lg transition-colors outline-none cursor-pointer"><Camera className="h-4 w-4" /></button>
+              <button type="button" className="p-1 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-lg transition-colors outline-none cursor-pointer"><Mic className="h-4 w-4" /></button>
+            </div>
+            <button
+              type="submit"
+              disabled={loading || !input.trim()}
+              className="flex h-7.5 w-7.5 items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-750 text-white disabled:opacity-40 transition-all shadow-sm outline-none cursor-pointer"
+            >
+              <Send className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </form>
-        <p className="mt-1.5 text-[9px] font-medium text-slate-400">Enter to send · Shift + Enter for a new line</p>
       </div>
     </>
   );
 
+  const renderMemoryTab = () => {
+    return (
+      <div className="p-4 space-y-4">
+        <div className="flex justify-between items-center pb-2 border-b border-slate-200/60 dark:border-slate-850/50">
+          <span className="text-[10px] font-extrabold uppercase text-slate-450 tracking-wider">Timeline Memory</span>
+          <button onClick={clearConversation} className="text-[9px] font-bold text-rose-500 hover:underline flex items-center gap-1 cursor-pointer">
+            <Trash2 className="h-3 w-3" /> Clear
+          </button>
+        </div>
+        
+        <div className="relative border-l border-slate-200 dark:border-slate-850/80 ml-3.5 pl-5 space-y-6">
+          <div className="relative">
+            <span className="absolute -left-[25px] top-1.5 flex h-2.5 w-2.5 rounded-full bg-blue-500 ring-4 ring-blue-500/10" />
+            <Card className="p-4 bg-white/70 dark:bg-[#0f111a]/60 border border-slate-205 dark:border-slate-850/60 rounded-xl space-y-1">
+              <span className="text-[8px] font-extrabold uppercase text-blue-500 tracking-wider">System Authenticated</span>
+              <h4 className="text-[10px] font-extrabold text-slate-900 dark:text-white">Secure Workspace Initialized</h4>
+              <p className="text-[9px] text-slate-500 dark:text-slate-400 font-semibold leading-relaxed mt-1">Credentials verification index was synced with registry database logs.</p>
+            </Card>
+          </div>
+
+          <div className="relative">
+            <span className="absolute -left-[25px] top-1.5 flex h-2.5 w-2.5 rounded-full bg-slate-300 dark:bg-slate-700" />
+            <Card className="p-4 bg-white/70 dark:bg-[#0f111a]/60 border border-slate-205 dark:border-slate-850/60 rounded-xl space-y-1">
+              <span className="text-[8px] font-extrabold uppercase text-slate-400 tracking-wider">Timeline Landmark</span>
+              <h4 className="text-[10px] font-extrabold text-slate-900 dark:text-white">Admission Checklists Queried</h4>
+              <p className="text-[9px] text-slate-500 dark:text-slate-400 font-semibold leading-relaxed mt-1">Audit of prerequisite documents completed by User AI assistant.</p>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const placeholders = {
-    tasks: <Placeholder description="Upcoming operating tasks will appear here as actionable, auditable work items." icon={ClipboardList} items={['Verification review queue', 'Follow-up reminders', 'Escalation readiness']} title="Workspace Tasks" />,
+    tasks: <Placeholder description="Upcoming operating tasks will appear here as actionable, auditable work items." icon={CheckSquare} items={['Verification review queue', 'Follow-up reminders', 'Escalation readiness']} title="Workspace Tasks" />,
     documents: <Placeholder description="Your scoped vault and active request documents will be organized here." icon={FileText} items={['Verified credentials', 'Active request files', 'Recent document activity']} title="Document Workspace" />,
-    memory: <Placeholder description="UniCrypt OS memory will make relevant workspace history easy to review and manage." icon={BrainCircuit} items={['Conversation summaries', 'Saved workspace context', 'Memory controls']} title="Workspace Memory" />,
+    memory: renderMemoryTab(),
     settings: <Placeholder description="Panel controls and workspace preferences will live here without interrupting your work." icon={Settings2} items={['Panel behavior', 'Notification preferences', 'Developer diagnostics']} title="OS Settings" />
   };
 
   return (
     <aside aria-label="UniCrypt OS" className={`unicrypt-os-panel fixed bottom-0 right-0 top-0 z-40 flex flex-col border-l border-slate-200/80 bg-white/75 shadow-2xl shadow-slate-950/10 backdrop-blur-2xl transition-[width,transform,opacity] duration-300 dark:border-slate-800/80 dark:bg-[#0c0f18]/85 ${mode === 'hidden' ? 'pointer-events-none translate-x-full opacity-0' : ''}`} style={{ width: mode === 'collapsed' ? 56 : `${Math.min(Math.round(window.innerWidth * 0.5), Math.max(300, width))}px` }}>
       <div className="absolute -left-1 top-0 hidden h-full w-2 cursor-col-resize md:block" onDoubleClick={resetWidth} onPointerDown={beginResize} title="Drag to resize · double click to reset" />
-      {mode === 'collapsed' ? <button className="m-2 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg" onClick={() => setPanelMode('expanded')} title="Expand UniCrypt OS" type="button"><PanelRightOpen className="h-4 w-4" /></button> : <>
-        <header className="border-b border-slate-200/80 px-4 pb-3 pt-4 dark:border-slate-800/80">
-          <div className="flex items-start justify-between gap-3"><div><h2 className="flex items-center gap-2 text-sm font-extrabold text-slate-950 dark:text-white"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-sm">🤖</span> UniCrypt OS</h2><p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">Current Context</p><p className="mt-0.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300">{contextLabel}</p></div><div className="flex gap-1"><button className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200" onClick={clearConversation} title="Clear conversation" type="button"><Trash2 className="h-3.5 w-3.5" /></button><button className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200" onClick={() => setPanelMode('collapsed')} title="Collapse panel" type="button"><PanelRightClose className="h-3.5 w-3.5" /></button></div></div>
+      {mode === 'collapsed' ? <button className="m-2 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg cursor-pointer" onClick={() => setPanelMode('expanded')} title="Expand UniCrypt OS" type="button"><PanelRightOpen className="h-4 w-4" /></button> : <>
+        
+        {/* Header Section (Arc/Cursor minimal OS design) */}
+        <header className="border-b border-slate-200/80 px-4 pb-3.5 pt-4 dark:border-slate-850/60">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-blue-600 text-white font-extrabold text-[10px]">OS</span>
+                <h2 className="text-xs font-extrabold text-slate-950 dark:text-white uppercase tracking-wider">UniCrypt OS</h2>
+              </div>
+              <div className="flex items-center gap-1.5 mt-2.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[9px] font-bold text-slate-400 dark:text-slate-550 uppercase tracking-widest">Connected · User AI</span>
+              </div>
+              <p className="mt-2 text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">Context</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-slate-600 dark:text-slate-350 truncate max-w-[200px]">{contextLabel}</p>
+            </div>
+            <div className="flex gap-1.5">
+              <button className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-850 dark:hover:text-slate-200 cursor-pointer outline-none" onClick={() => setPanelMode('collapsed')} title="Collapse panel" type="button"><PanelRightClose className="h-3.5 w-3.5" /></button>
+            </div>
+          </div>
         </header>
-        <nav className="flex gap-1 overflow-x-auto border-b border-slate-200/80 px-2 py-2 dark:border-slate-800/80">{PANEL_TABS.map(tab => { const Icon = tab.icon; return <button className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[9px] font-bold transition ${activeTab === tab.id ? 'bg-blue-500/10 text-blue-600 dark:text-blue-300' : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'}`} key={tab.id} onClick={() => setActiveTab(tab.id)} type="button"><Icon className="h-3.5 w-3.5" />{tab.label}</button>; })}</nav>
+
+        {/* Minimal Tooltip-based Navigation icons list */}
+        <div className="flex items-center justify-between border-b border-slate-200/80 px-4 py-2 dark:border-slate-850/60">
+          <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Navigation</span>
+          <nav className="flex gap-1.5">
+            {PANEL_TABS.map(tab => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`relative flex items-center justify-center rounded-xl p-2 transition-all outline-none cursor-pointer group ${
+                    activeTab === tab.id
+                      ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/10'
+                      : 'text-slate-450 hover:bg-slate-100 dark:hover:bg-slate-850 hover:text-slate-900 dark:hover:text-white border border-transparent'
+                  }`}
+                  type="button"
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className="absolute bottom-full mb-2 right-1/2 translate-x-1/2 scale-90 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-150 bg-slate-900 dark:bg-slate-800 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-lg pointer-events-none whitespace-nowrap z-50">
+                    {tab.label}
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
         {activeTab === 'assistant' ? assistantContent : placeholders[activeTab]}
       </>}
-      {mode === 'hidden' && <button className="pointer-events-auto absolute left-0 top-24 -translate-x-full rounded-l-xl bg-blue-600 p-3 text-white shadow-lg" onClick={() => setPanelMode('expanded')} type="button"><ChevronLeft className="h-4 w-4" /></button>}
+      {mode === 'hidden' && <button className="pointer-events-auto absolute left-0 top-24 -translate-x-full rounded-l-xl bg-blue-600 p-3 text-white shadow-lg cursor-pointer outline-none border-none" onClick={() => setPanelMode('expanded')} type="button"><PanelRightOpen className="h-4 w-4" /></button>}
     </aside>
   );
 }
