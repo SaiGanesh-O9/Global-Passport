@@ -122,7 +122,7 @@ export default function SidebarLayout({ children, navItems, subtitle, title }) {
             {navItems.map((item) => {
               const currentHash = (window.location.hash || '#dashboard').replace('#', '');
               const targetHash = (item.to.split('#')[1] || 'dashboard');
-              const isLinkActive = currentHash === targetHash;
+              const isLinkActive = currentHash.split('?')[0] === targetHash;
 
               return (
                 <NavLink

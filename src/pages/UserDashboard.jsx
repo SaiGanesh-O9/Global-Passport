@@ -694,7 +694,8 @@ export default function UserDashboard() {
   };
 
   const renderActiveView = () => {
-    switch (activeTab) {
+    const tabRoot = activeTab.split('?')[0];
+    switch (tabRoot) {
       case 'dashboard':
         return renderDashboardView();
       case 'organizations':
