@@ -8,7 +8,7 @@ import SidebarLayout from '../components/layout/SidebarLayout.jsx';
 import Button from '../components/ui/Button.jsx';
 import Card from '../components/ui/Card.jsx';
 import UniversalDocumentViewer from '../components/dashboard/UniversalDocumentViewer.jsx';
-import { FileText, LayoutDashboard, Settings, Upload, Mail, Search, Building2, CheckCircle2, Globe, ChevronRight, Shield, Activity, User, Clock, AlertCircle, FileCheck, Download, Eye } from 'lucide-react';
+import { FileText, LayoutDashboard, Settings, Upload, Mail, Search, Building2, CheckCircle2, Globe, ChevronRight, Shield, Activity, User, Clock, AlertCircle, FileCheck, Download, Eye, Bot, CheckCircle } from 'lucide-react';
 import AIPreferences from '../components/ui/AIPreferences.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 
@@ -172,194 +172,225 @@ export default function UserDashboard() {
     });
   }, [credentials, vaultFilter]);
 
-  // 1. Render Dashboard Main Panel
+  // 1. Render Dashboard Main Panel (Redesigned for Premium v0.95 UX)
   const renderDashboardView = () => {
+    const verifiedCount = (credentials || []).filter(c => c.status === 'Approved').length;
+    const totalCount = (credentials || []).length || 1;
+    const progressPercent = Math.round((verifiedCount / totalCount) * 100);
+
     return (
-      <div className="space-y-6">
-        <Card className="p-6 sm:p-8 bg-white dark:bg-[#12131a] border border-slate-205 dark:border-slate-800/40 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 dark:bg-blue-500/5 blur-3xl pointer-events-none"></div>
-          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between relative z-10">
+      <div className="space-y-8 animate-in fade-in duration-300">
+        
+        {/* Welcome Back Header */}
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400">
+            Secure Workspace
+          </span>
+          <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            Welcome Back, Student
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 font-semibold leading-relaxed max-w-2xl">
+            Monitor verified credentials, pending institutional actions, and browse accredited partner organizations.
+          </p>
+        </div>
+
+        {/* Confidence Progress & Actions Stack */}
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Application Confidence */}
+          <Card className="p-6 bg-white/70 dark:bg-[#0f111a]/60 border border-slate-200/80 dark:border-slate-850/60 shadow-sm rounded-2xl relative overflow-hidden flex flex-col justify-between group">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none" />
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">Welcome</p>
-              <h1 className="mt-2 text-2xl sm:text-3xl font-extrabold text-slate-950 dark:text-white tracking-tight">
-                Manage your verification requests
-              </h1>
-              <p className="mt-3 max-w-2xl text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
-                Submit verification requests once, track review status, and reuse verified credentials whenever you need them.
+              <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest block">
+                Application Readiness
+              </span>
+              <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1.5">
+                {progressPercent}% Credentials Verified
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mt-2.5 leading-relaxed">
+                {verifiedCount} of {(credentials || []).length} items in your personal vault are signed and approved by partner registrars.
               </p>
             </div>
-            <Button icon={Upload} onClick={() => setIsUploadModalOpen(true)} className="shrink-0">
-              Request Verification
-            </Button>
-          </div>
-        </Card>
-
-        {incomingRequests.length > 0 && (
-          <div className="space-y-3.5">
-            <div className="flex items-center gap-2">
-              <span className="flex h-5.5 w-5.5 items-center justify-center rounded-lg bg-blue-600/10 text-blue-600 dark:text-blue-400">
-                <Mail className="h-3.5 w-3.5" />
-              </span>
-              <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                Incoming Verification Requests ({incomingRequests.length})
-              </h2>
+            <div className="mt-6">
+              <div className="h-2 w-full bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 rounded-full transition-all duration-1000 ease-out"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {incomingRequests.map((req) => (
-                <Card 
-                  key={req.id} 
-                  className="p-5 bg-white dark:bg-[#12131a] border border-blue-550/20 dark:border-blue-800/40 shadow-sm relative overflow-hidden flex flex-col justify-between gap-4"
+          </Card>
+
+          {/* Pending Requests Alert */}
+          <Card className="p-6 bg-white/70 dark:bg-[#0f111a]/60 border border-slate-200/80 dark:border-slate-850/60 shadow-sm rounded-2xl relative overflow-hidden flex flex-col justify-between group">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none" />
+            <div>
+              <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest block">
+                Required Verification Tasks
+              </span>
+              <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1.5">
+                {incomingRequests.length} Upload Requests
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mt-2.5 leading-relaxed">
+                You have {incomingRequests.length} pending academic verification tasks that require document uploads.
+              </p>
+            </div>
+            <div className="mt-6">
+              {incomingRequests.length > 0 ? (
+                <button 
+                  onClick={() => { window.location.hash = '#requests'; }}
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-xs font-extrabold uppercase tracking-wider text-white rounded-xl shadow-sm text-center transition-all cursor-pointer active:scale-95 outline-none"
                 >
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 blur-xl pointer-events-none"></div>
-                  <div className="space-y-2 relative z-10">
-                    <div className="flex justify-between items-start gap-2">
-                      <span className="text-[10px] font-bold text-slate-505 dark:text-slate-450 uppercase tracking-wider block">
-                        From {req.organizationName || req.requestedOrganization}
-                      </span>
-                      <span className="text-[9px] font-extrabold uppercase bg-blue-500/10 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-lg border border-blue-550/10">
-                        Upload Approval Required
-                      </span>
-                    </div>
-                    <h3 className="text-sm font-extrabold text-slate-950 dark:text-white leading-snug">
-                      {req.credentialType}
-                    </h3>
-                    {req.purpose && (
-                      <p className="text-[11px] text-slate-500 dark:text-slate-450 italic leading-relaxed">
-                        Message: "{req.purpose}"
-                      </p>
-                    )}
-                    <span className="text-[9px] text-slate-400 dark:text-slate-550 block font-bold">
-                      Requested on: {req.requestDate}
-                    </span>
-                  </div>
-                  <div className="relative z-10 flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/45">
-                    <Button 
-                      variant="primary" 
-                      className="w-full text-[10px] font-extrabold py-2 px-3 justify-center gap-1.5"
-                      onClick={() => setResolveRequest(req)}
-                    >
-                      Approve & Upload Document
-                    </Button>
-                  </div>
-                </Card>
-              ))}
+                  Review upload requests
+                </button>
+              ) : (
+                <div className="text-[10px] text-emerald-600 dark:text-emerald-450 font-extrabold uppercase tracking-wider flex items-center gap-1.5">
+                  <CheckCircle className="h-4.5 w-4.5" />
+                  All requirements satisfied
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          </Card>
+        </div>
 
-        {/* Organization Discovery Panel */}
+        {/* Quick Actions Panel */}
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-sm font-bold text-slate-950 dark:text-white uppercase tracking-wider">Discover Organizations</h2>
-              <p className="mt-1 text-xs text-slate-550 dark:text-slate-400 font-semibold">
-                Find verified institutions and request credential verifications directly.
-              </p>
-            </div>
-            <div className="relative w-full sm:w-80">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
-                <Search className="h-4 w-4" />
-              </span>
-              <input
-                type="text"
-                placeholder="Search by name, category, or service..."
-                value={orgSearchQuery}
-                onChange={(e) => setOrgSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-205 dark:border-slate-800 rounded-xl text-xs bg-white dark:bg-slate-900/40 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-500/80 font-semibold transition-theme"
-              />
-            </div>
-          </div>
+          <h3 className="text-xs font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+            Quick Actions
+          </h3>
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+            <button
+              onClick={() => setIsUploadModalOpen(true)}
+              className="p-4 bg-white/70 dark:bg-[#0f111a]/60 border border-slate-200/80 dark:border-slate-850/60 rounded-2xl hover:border-blue-500/30 hover:shadow-md transition-all active:scale-[0.98] duration-150 outline-none text-left cursor-pointer group"
+            >
+              <Upload className="h-5 w-5 text-blue-500 group-hover:scale-105 transition-transform" />
+              <p className="text-xs font-bold text-slate-900 dark:text-white mt-3">Upload Document</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-1">Add to vault</p>
+            </button>
+            
+            <button
+              onClick={() => { window.location.hash = '#organizations'; }}
+              className="p-4 bg-white/70 dark:bg-[#0f111a]/60 border border-slate-200/80 dark:border-slate-850/60 rounded-2xl hover:border-blue-500/30 hover:shadow-md transition-all active:scale-[0.98] duration-150 outline-none text-left cursor-pointer group"
+            >
+              <Building2 className="h-5 w-5 text-blue-500 group-hover:scale-105 transition-transform" />
+              <p className="text-xs font-bold text-slate-900 dark:text-white mt-3">Find Partners</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-1">Discover catalog</p>
+            </button>
 
-          {filteredDiscoveryOrgs.length > 0 ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredDiscoveryOrgs.map((org) => {
-                const services = (verificationServices || []).filter(s => s.organizationId === org.id);
-                return (
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('unicrypt-os-prompt', { detail: { prompt: 'What requirements are outstanding for Stanford?' } }))}
+              className="p-4 bg-white/70 dark:bg-[#0f111a]/60 border border-slate-200/80 dark:border-slate-850/60 rounded-2xl hover:border-blue-500/30 hover:shadow-md transition-all active:scale-[0.98] duration-150 outline-none text-left cursor-pointer group"
+            >
+              <Bot className="h-5 w-5 text-blue-500 group-hover:scale-105 transition-transform" />
+              <p className="text-xs font-bold text-slate-900 dark:text-white mt-3">Ask Assistant</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-1">Resolve queries</p>
+            </button>
+
+            <button
+              onClick={() => { window.location.hash = '#settings'; }}
+              className="p-4 bg-white/70 dark:bg-[#0f111a]/60 border border-slate-200/80 dark:border-slate-850/60 rounded-2xl hover:border-blue-500/30 hover:shadow-md transition-all active:scale-[0.98] duration-150 outline-none text-left cursor-pointer group"
+            >
+              <Settings className="h-5 w-5 text-blue-500 group-hover:scale-105 transition-transform" />
+              <p className="text-xs font-bold text-slate-900 dark:text-white mt-3">Manage Settings</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-1">Configure profile</p>
+            </button>
+          </div>
+        </div>
+
+        {/* Dual Core Grid */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          
+          {/* Main Dashboard Col 1 & 2: Requests & Directory Preview */}
+          <div className="lg:col-span-2 space-y-6">
+            <DocumentTable />
+            
+            {/* Directory Preview Section */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xs font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                  Accredited Partner Directory Preview
+                </h3>
+                <button 
+                  onClick={() => { window.location.hash = '#organizations'; }}
+                  className="text-[10px] font-extrabold uppercase tracking-wider text-blue-650 dark:text-blue-400 hover:underline outline-none"
+                >
+                  Explore Catalog &rarr;
+                </button>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {filteredDiscoveryOrgs.slice(0, 2).map((org) => (
                   <Card 
                     key={org.id} 
-                    className="p-5 bg-white dark:bg-[#12131a] border border-slate-200 dark:border-slate-800/40 shadow-sm flex flex-col justify-between gap-4 relative overflow-hidden"
+                    className="p-5 bg-white/70 dark:bg-[#0f111a]/60 border border-slate-205 dark:border-slate-850/60 shadow-sm hover:border-blue-500/10 hover:shadow-md transition-all duration-200 flex flex-col justify-between gap-4 rounded-2xl"
                   >
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-start gap-2">
-                        <span className="text-[10px] font-bold text-slate-505 dark:text-slate-450 uppercase tracking-wider block">
-                          {org.category || 'Organization'}
-                        </span>
-                        <span className="rounded-lg bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold text-emerald-700 dark:text-emerald-450 ring-1 ring-emerald-500/20 flex items-center gap-0.5 whitespace-nowrap">
-                          <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
-                          Active
-                        </span>
-                      </div>
-
-                      <div>
-                        <h3 className="text-sm font-extrabold text-slate-950 dark:text-white leading-snug">{org.name}</h3>
-                        {org.description && (
-                          <p className="text-[11px] text-slate-555 dark:text-slate-400 line-clamp-2 mt-1 leading-normal font-semibold">
-                            {org.description}
-                          </p>
-                        )}
-                      </div>
-
-                      {services.length > 0 && (
-                        <div className="space-y-1">
-                          <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Available Services</span>
-                          <div className="flex flex-wrap gap-1.5 pt-1">
-                            {services.map(s => (
-                              <span 
-                                key={s.id} 
-                                className="text-[9px] font-extrabold uppercase bg-slate-100 dark:bg-slate-900/60 text-slate-655 dark:text-slate-350 px-2 py-0.5 rounded border border-slate-200/50 dark:border-slate-800/40"
-                              >
-                                {s.name}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                    <div>
+                      <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-blue-600/10 text-blue-600 dark:text-blue-450 tracking-wider">
+                        {org.category}
+                      </span>
+                      <h4 className="text-sm font-extrabold text-slate-950 dark:text-white mt-2 leading-snug">
+                        {org.name}
+                      </h4>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold line-clamp-2 mt-1 leading-normal">
+                        {org.description}
+                      </p>
                     </div>
-
-                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800/45 flex items-center justify-between gap-3">
-                      {org.website && (
-                        <a 
-                          href={`https://${org.website}`} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                        >
-                          <Globe className="h-3.5 w-3.5" />
-                          Website
-                        </a>
-                      )}
-                      <button
-                        onClick={() => {
-                          setSelectedDiscoveryOrg(org);
-                          setIsUploadModalOpen(true);
-                        }}
-                        className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-[10px] font-extrabold text-white rounded-lg shadow-sm hover:shadow transition-all cursor-pointer flex items-center gap-1 ml-auto"
-                      >
-                        Request Verification
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => {
+                        setSelectedDiscoveryOrg(org);
+                        setIsUploadModalOpen(true);
+                      }}
+                      className="w-full mt-1.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-850 text-[10px] font-extrabold uppercase tracking-wider text-slate-800 dark:text-slate-200 rounded-xl transition-all active:scale-[0.98] cursor-pointer outline-none border border-transparent"
+                    >
+                      Verify Credential
+                    </button>
                   </Card>
-                );
-              })}
+                ))}
+              </div>
             </div>
-          ) : (
-            <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-slate-800/60 rounded-2xl bg-white dark:bg-[#12131a]/40">
-              <p className="text-xs text-slate-550 dark:text-slate-400 font-bold uppercase tracking-wider">
-                No active organizations are accepting verification requests.
-              </p>
-            </div>
-          )}
+
+          </div>
+
+          {/* Side Panel: Activity Logs & AI Prompts Drawer */}
+          <div className="space-y-6">
+            <ActivityFeed />
+
+            {/* AI Insights & Assistant Panel */}
+            <Card className="p-5 bg-white/70 dark:bg-[#0f111a]/60 border border-slate-205 dark:border-slate-850/60 shadow-sm rounded-2xl relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/5 to-transparent pointer-events-none" />
+              <h3 className="text-xs font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5 mb-4">
+                <span className="text-blue-500">✦</span>
+                AI Copilot Suggestions
+              </h3>
+              <div className="space-y-3.5">
+                <div className="p-3 bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/10 rounded-xl space-y-1.5">
+                  <h4 className="text-[11px] font-bold text-slate-950 dark:text-white flex items-center gap-1 uppercase tracking-wider">
+                    📝 Missing IELTS Prerequisite
+                  </h4>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
+                    Stanford University requires IELTS. Submit your score card to clear outstanding checklists.
+                  </p>
+                  <button 
+                    onClick={() => window.dispatchEvent(new CustomEvent('unicrypt-os-prompt', { detail: { prompt: 'Explain Stanford admission criteria.' } }))}
+                    className="text-[9px] font-extrabold uppercase text-blue-600 dark:text-blue-450 hover:underline block outline-none mt-1"
+                  >
+                    Ask Copilot &rarr;
+                  </button>
+                </div>
+                
+                <div className="p-3 bg-slate-100/50 dark:bg-slate-900/50 border border-slate-200/50 dark:border-slate-800/40 rounded-xl space-y-1.5">
+                  <h4 className="text-[11px] font-bold text-slate-950 dark:text-white flex items-center gap-1 uppercase tracking-wider">
+                    🎓 Verify Transcripts
+                  </h4>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
+                    Your transcript credential status is pending registrar verification review.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </div>
+
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <DocumentTable />
-          </div>
-          <div>
-            <ActivityFeed />
-          </div>
-        </div>
       </div>
     );
   };
