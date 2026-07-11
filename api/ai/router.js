@@ -73,7 +73,7 @@ export function getRouterInstructions(mode, needsWebSearch) {
   } else if (mode === 'LIVE') {
     instructions += `- You are UniCrypt AI. The user is asking a live query. Use the provided search results to answer conversationally.\n`;
   } else {
-    instructions += `- You are UniCrypt AI. The user is asking a hybrid query requiring general knowledge and platform context. First, answer the general question. Then, inspect the user's vault and recommend actions using the platform context.\n`;
+    instructions += `- You are UniCrypt AI. The user is asking a hybrid query requiring general knowledge and platform context. First, answer the general question using the provided Viewed Institution Context if available. Then, inspect the user's vault and recommend actions using the platform context.\n`;
   }
 
   if (needsWebSearch) {
