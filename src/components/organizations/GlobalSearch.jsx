@@ -293,19 +293,27 @@ export default function GlobalSearch() {
 
   return (
     <div className="relative">
-      {/* Trigger Search Button (Apple/Linear style) */}
+      {/* Redesigned Premium Glassmorphic Search Trigger Pill (56-60px height) */}
       <button
         onClick={() => {
           setIsOpen(true);
           setTimeout(() => inputRef.current?.focus(), 50);
         }}
-        className="flex items-center gap-2 pl-3 pr-2 py-1.5 w-40 md:w-56 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 border border-slate-200/80 dark:border-slate-850/60 bg-white/50 dark:bg-slate-900/20 rounded-xl hover:border-slate-350 dark:hover:border-slate-700 hover:bg-white dark:hover:bg-slate-900/40 transition-all duration-200 active:scale-[0.98] outline-none group"
+        className="flex items-center justify-between pl-5 pr-4 h-[56px] w-72 md:w-[380px] bg-white/30 dark:bg-slate-900/35 backdrop-blur-md border border-slate-250/50 dark:border-slate-850/50 rounded-full hover:border-blue-500/30 hover:ring-4 hover:ring-blue-500/10 shadow-md dark:shadow-black/5 transition-all duration-300 active:scale-[0.98] outline-none group"
       >
-        <Search className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-500 transition-colors" />
-        <span className="flex-1 text-left">Search...</span>
-        <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[8px] bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded text-slate-400 dark:text-slate-500 font-sans tracking-normal">
-          ⌘K
-        </kbd>
+        <div className="flex items-center min-w-0 flex-1 mr-3">
+          <Search className="h-5 w-5 text-slate-400 dark:text-slate-500 group-hover:text-blue-500 shrink-0 transition-colors mr-3" />
+          <span className="text-[11.5px] font-semibold text-slate-400 dark:text-slate-450 text-left truncate">
+            Search organizations, documents or ask UniCrypt...
+          </span>
+        </div>
+        
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white/60 dark:bg-slate-850/60 border border-slate-200/50 dark:border-slate-800/50 rounded-full shadow-sm shrink-0">
+          <Sparkles className="h-3 w-3 text-pink-500 shrink-0" />
+          <kbd className="text-[9px] font-sans font-bold text-slate-400 dark:text-slate-555 tracking-normal uppercase leading-none">
+            Ctrl+K
+          </kbd>
+        </div>
       </button>
 
       {/* Large Floating Command Palette Modal */}
