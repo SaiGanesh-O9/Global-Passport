@@ -1236,40 +1236,6 @@ export default function AICopilot() {
     return (
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-full max-w-2xl px-4 pointer-events-none">
         
-        {isProfileOpen && (
-          <div className="absolute bottom-24 right-4 surface-elevated p-5 w-48 text-xs font-bold text-slate-700 dark:text-slate-350 pointer-events-auto space-y-1.5 animate-slide-in">
-            <span className="text-[8px] font-black text-slate-450 dark:text-slate-555 uppercase tracking-wider block pb-1 border-b border-transparent">
-              Workspace Options
-            </span>
-            <button
-              onClick={() => {
-                window.location.hash = '#profile';
-                setIsProfileOpen(false);
-              }}
-              className="w-full text-left py-1.5 px-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-colors block border-none outline-none cursor-pointer"
-            >
-              👤 Profile
-            </button>
-            <button
-              onClick={() => {
-                window.location.hash = '#settings';
-                setIsProfileOpen(false);
-              }}
-              className="w-full text-left py-1.5 px-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-colors block border-none outline-none cursor-pointer"
-            >
-              ⚙ Settings
-            </button>
-            <button
-              onClick={async () => {
-                await logout();
-                navigate('/login');
-              }}
-              className="w-full text-left py-1.5 px-2.5 rounded-lg text-rose-600 hover:bg-rose-500/10 transition-colors block border-none outline-none cursor-pointer"
-            >
-              🚪 Logout
-            </button>
-          </div>
-        )}
 
         <div 
           className={`w-full surface-floating p-4 flex flex-col gap-3.5 pointer-events-auto transition-all duration-350 ease-out ${
@@ -1478,6 +1444,43 @@ export default function AICopilot() {
           </div>
 
         </div>
+
+        {isProfileOpen && (
+          <div className="absolute bottom-[72px] right-4 w-48 text-xs font-bold bg-white dark:bg-[#0f111a] border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl p-4 text-slate-700 dark:text-slate-350 pointer-events-auto space-y-1.5 animate-slide-in z-50">
+            <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider block pb-1 border-b border-slate-100 dark:border-slate-800/40">
+              Workspace Options
+            </span>
+            <button
+              onClick={() => {
+                window.location.hash = '#profile';
+                setIsProfileOpen(false);
+              }}
+              className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-slate-55 dark:hover:bg-slate-900/60 transition-colors block border-none outline-none cursor-pointer text-slate-700 dark:text-slate-200 font-bold"
+            >
+              👤 Profile
+            </button>
+            <button
+              onClick={() => {
+                window.location.hash = '#settings';
+                setIsProfileOpen(false);
+              }}
+              className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-slate-55 dark:hover:bg-slate-900/60 transition-colors block border-none outline-none cursor-pointer text-slate-700 dark:text-slate-200 font-bold"
+            >
+              ⚙ Settings
+            </button>
+            <div className="border-t border-slate-100 dark:border-slate-800/40 my-1" />
+            <button
+              onClick={async () => {
+                await logout();
+                navigate('/login');
+              }}
+              className="w-full text-left py-2 px-2.5 rounded-xl text-rose-600 hover:bg-rose-500/10 transition-colors block border-none outline-none cursor-pointer font-bold"
+            >
+              🚪 Sign Out
+            </button>
+          </div>
+        )}
+
       </div>
     );
   }
