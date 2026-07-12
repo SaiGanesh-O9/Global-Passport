@@ -231,15 +231,17 @@ export default function CaptureStudio({ credentialType, onComplete, onCancel }) 
       documentType: credentialType || 'Academic Transcript',
       quality: 'Excellent (96%)',
       institution: selectedOrgData?.profile?.name || 'Stanford University',
-      name: userProfile?.name || 'Minnu',
+      name: userProfile?.name || 'Individual User',
       gpa: '3.85',
+      passportNo: 'A-98234891',
+      nationality: 'United States',
       gradDate: 'June 15, 2026',
       readinessGain: '+8%',
       requiredBy: [
         selectedOrgData?.profile?.name || 'Iowa State University',
         'World Education Services (WES)'
       ],
-      nextAction: 'Upload Passport Identification'
+      nextAction: 'Complete application review'
     });
     
     setAnalysisStage(stages.length - 1);
@@ -331,10 +333,17 @@ export default function CaptureStudio({ credentialType, onComplete, onCancel }) 
                   <span className="text-[8px] font-extrabold uppercase text-slate-400 dark:text-slate-555 block">Extracted Name</span>
                   <span className="text-slate-900 dark:text-white font-extrabold mt-0.5 block">{extractedData.name}</span>
                 </div>
-                <div>
-                  <span className="text-[8px] font-extrabold uppercase text-slate-400 dark:text-slate-555 block">Extracted GPA</span>
-                  <span className="text-slate-900 dark:text-white font-extrabold mt-0.5 block">{extractedData.gpa}</span>
-                </div>
+                {extractedData.documentType === 'Passport' ? (
+                  <div>
+                    <span className="text-[8px] font-extrabold uppercase text-slate-400 dark:text-slate-555 block">Passport Number</span>
+                    <span className="text-slate-900 dark:text-white font-extrabold mt-0.5 block">{extractedData.passportNo}</span>
+                  </div>
+                ) : (
+                  <div>
+                    <span className="text-[8px] font-extrabold uppercase text-slate-400 dark:text-slate-555 block">Extracted GPA</span>
+                    <span className="text-slate-900 dark:text-white font-extrabold mt-0.5 block">{extractedData.gpa}</span>
+                  </div>
+                )}
                 <div className="col-span-2 border-t border-slate-100 dark:border-slate-800/40 pt-2.5">
                   <span className="text-[8px] font-extrabold uppercase text-slate-400 dark:text-slate-555 block">Required By</span>
                   <div className="mt-1 space-y-1">
