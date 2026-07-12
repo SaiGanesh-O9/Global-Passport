@@ -296,6 +296,12 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
       });
 
       if (presetDocumentType) {
+        if (presetDocumentType === 'Passport') {
+          const uploadedFile = Object.values(files)[0];
+          window.dispatchEvent(new CustomEvent('unicrypt-demo-upload', {
+            detail: { fileName: uploadedFile?.name || 'passport.pdf', fileUrl: '' }
+          }));
+        }
         setStep(5);
         return;
       }

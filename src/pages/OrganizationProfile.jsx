@@ -345,9 +345,7 @@ export default function OrganizationProfile() {
         <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">My Journey Target</span>
         <div className="bg-slate-100/50 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-850/50 p-1 rounded-2xl flex gap-1 max-w-sm">
           {[
-            { id: 'Education', label: '🎓 Education' },
-            { id: 'Career', label: '💼 Career' },
-            { id: 'Immigration', label: '🌍 Immigration' }
+            { id: 'Education', label: '🎓 Education' }
           ].map((j) => (
             <button
               key={j.id}

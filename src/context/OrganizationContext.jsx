@@ -29,7 +29,10 @@ export const OrganizationProvider = ({ children }) => {
   }, []);
 
   // List of all organization profiles
-  const organizationsList = useMemo(() => getAllOrganizations(), []);
+  const organizationsList = useMemo(() => {
+    const list = getAllOrganizations();
+    return list.filter(org => org.category === 'University' || org.category === 'Credential Agency');
+  }, []);
 
   // Detailed data of the selected organization
   const selectedOrgData = useMemo(() => {

@@ -75,6 +75,15 @@ export default function DebugPage() {
     localStorage.setItem('unicrypt_debug_fs_writes', '0');
   };
 
+  const triggerDemoReset = () => {
+    window.dispatchEvent(new CustomEvent('unicrypt-demo-reset'));
+    EventBus.dispatch(EVENTS.NOTIFICATION_SHOW, {
+      title: 'Demo State Restored',
+      message: 'Passport cleared, WES application reset to 87% progress index.',
+      type: 'success'
+    });
+  };
+
   const featureFlags = [
     { name: 'FEATURE_COMMAND_CENTER', status: 'Active' },
     { name: 'FEATURE_WORKSPACE_PANEL', status: 'Active' },
@@ -99,12 +108,20 @@ export default function DebugPage() {
             System parameter audits, telemetry metrics, and Event Bus registers.
           </p>
         </div>
-        <button
-          onClick={() => window.location.href = '/dashboard'}
-          className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-xs font-bold text-white rounded-lg border border-slate-800 cursor-pointer outline-none transition-colors"
-        >
-          Return to Dashboard
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={triggerDemoReset}
+            className="px-4 py-2 bg-rose-950/60 hover:bg-rose-900/60 text-xs font-black text-rose-300 rounded-lg border border-rose-900/50 cursor-pointer outline-none transition-colors"
+          >
+            🔄 Reset Demo
+          </button>
+          <button
+            onClick={() => window.location.href = '/dashboard'}
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-xs font-bold text-white rounded-lg border border-slate-800 cursor-pointer outline-none transition-colors"
+          >
+            Return to Dashboard
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">

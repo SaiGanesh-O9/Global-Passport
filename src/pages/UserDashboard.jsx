@@ -269,9 +269,8 @@ export default function UserDashboard() {
 
   // 1. Render Dashboard Main Panel (Redesigned for Premium v0.95 UX)
   const renderDashboardView = () => {
-    const verifiedCount = (credentials || []).filter(c => c.status === 'Approved').length;
-    const totalCount = (credentials || []).length || 1;
-    const progressPercent = Math.round((verifiedCount / totalCount) * 100);
+    const hasPassport = (credentials || []).some(c => c.type === 'Passport' && c.status === 'Approved');
+    const progressPercent = hasPassport ? 96 : 87;
 
     return (
       <div className="space-y-8 animate-in fade-in duration-300">
@@ -312,7 +311,11 @@ export default function UserDashboard() {
                 <span className="text-[10px] font-extrabold text-emerald-500 uppercase animate-pulse">Excellent</span>
               </div>
               <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
-                1 credential missing · Readiness estimated: <strong className="text-slate-700 dark:text-slate-300">Today</strong>
+                {hasPassport ? (
+                  <span className="text-emerald-600 dark:text-emerald-450 font-bold">✓ All prerequisites verified · Ready to submit</span>
+                ) : (
+                  <span>1 credential missing · Readiness estimated: <strong className="text-slate-750 dark:text-slate-250">Today</strong></span>
+                )}
               </p>
             </div>
 

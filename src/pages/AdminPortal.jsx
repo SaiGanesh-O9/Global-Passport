@@ -233,9 +233,9 @@ export default function AdminPortal() {
 
 
   // Show status banner notification helper
-  const triggerNotification = (type, message) => {
-    setNotification({ type, message });
-    setTimeout(() => setNotification(null), 5050);
+  const triggerNotification = (type, message, onUndo = null) => {
+    setNotification({ type, message, onUndo });
+    setTimeout(() => setNotification(null), 6000);
   };
 
   // Log out action
@@ -495,6 +495,14 @@ export default function AdminPortal() {
     const ids = Object.keys(selectedUserIds).filter(id => selectedUserIds[id] && id !== currentUser.uid);
     if (ids.length === 0) return;
 
+    const originalStatuses = {};
+    ids.forEach(id => {
+      const user = users.find(u => u.id === id);
+      if (user) {
+        originalStatuses[id] = user.status || 'Active';
+      }
+    });
+
     setConfirmAction({
       title: 'Bulk Suspend Users',
       message: `Are you sure you want to suspend the ${ids.length} selected user account(s)? They will lose all access to UniCrypt immediately.`,
@@ -502,7 +510,18 @@ export default function AdminPortal() {
         setActionProcessing(true);
         try {
           await Promise.all(ids.map(id => updateUserRoleStatus(id, { status: 'suspended' }, currentUser.email, currentUser.uid)));
-          triggerNotification('success', `Suspended ${ids.length} user accounts successfully.`);
+          
+          const undoCallback = async () => {
+            try {
+              await Promise.all(ids.map(id => updateUserRoleStatus(id, { status: originalStatuses[id] || 'Active' }, currentUser.email, currentUser.uid)));
+              triggerNotification('success', 'Suspensions reverted successfully.');
+            } catch (err) {
+              console.error(err);
+              triggerNotification('error', 'Failed to undo suspensions: ' + err.message);
+            }
+          };
+
+          triggerNotification('success', `Suspended ${ids.length} user accounts successfully.`, undoCallback);
           setSelectedUserIds({});
         } catch (err) {
           console.error(err);
@@ -1107,11 +1126,22 @@ export default function AdminPortal() {
       
       {/* Top Banner Alert System */}
       {notification && (
-        <div className={`fixed top-4 right-4 z-55 px-4 py-3 rounded-xl shadow-lg border text-xs font-semibold flex items-center gap-2 transition-all ${
-          notification.type === 'success' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-450 dark:text-emerald-450 border-emerald-500/20' : 'bg-rose-500/10 text-rose-700 dark:text-rose-450 border-rose-500/20'
+        <div className={`fixed top-4 right-4 z-55 px-4 py-3 rounded-xl shadow-lg border text-xs font-semibold flex items-center gap-3 transition-all ${
+          notification.type === 'success' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-450 border-emerald-500/20' : 'bg-rose-500/10 text-rose-700 dark:text-rose-450 border-rose-500/20'
         }`}>
           {notification.type === 'success' ? <CheckCircle2 className="h-4.5 w-4.5" /> : <XCircle className="h-4.5 w-4.5" />}
           <span>{notification.message}</span>
+          {notification.onUndo && (
+            <button
+              onClick={() => {
+                notification.onUndo();
+                setNotification(null);
+              }}
+              className="ml-2 px-2.5 py-1 rounded-lg bg-slate-900 dark:bg-slate-800 text-[10px] text-white font-extrabold hover:bg-slate-800 active:scale-95 transition-all cursor-pointer border border-slate-700/50"
+            >
+              Undo
+            </button>
+          )}
         </div>
       )}
 

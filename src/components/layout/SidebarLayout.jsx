@@ -12,6 +12,7 @@ import AICopilot from '../ui/AICopilot.jsx';
 import WorkspacePanel from '../../workspace/WorkspacePanel/WorkspacePanel.jsx';
 import ToastNotifier from '../ui/ToastNotifier.jsx';
 import CommandPalette from '../ui/CommandPalette.jsx';
+import { FEATURE_FLAGS } from '../../core/registry/featureFlags.js';
 
 export default function SidebarLayout({ children, navItems, title }) {
   const { logout, currentUser, userProfile, loginAsDeveloper, role } = useAuth();
@@ -247,6 +248,24 @@ export default function SidebarLayout({ children, navItems, title }) {
               </div>
             )}
             
+            {FEATURE_FLAGS.FEATURE_DEMO_MODE && (
+              <button
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('unicrypt-demo-reset'));
+                  window.dispatchEvent(new CustomEvent('unicrypt.notification.show', {
+                    detail: {
+                      title: 'Demo State Restored',
+                      message: 'Passport cleared, WES application reset to 87% progress index.',
+                      type: 'success'
+                    }
+                  }));
+                }}
+                className="w-full flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-black text-rose-300 bg-rose-950/40 hover:bg-rose-900/40 border border-rose-900/30 active:scale-[0.98] transition-all duration-100 cursor-pointer"
+              >
+                🔄 Reset Demo State
+              </button>
+            )}
+
             <button
               onClick={handleLogout}
               className="w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-bold text-rose-600 bg-rose-500/5 dark:bg-rose-500/10 hover:bg-rose-500/10 dark:hover:bg-rose-500/15 border border-rose-500/10 active:scale-[0.98] transition-all duration-150 cursor-pointer text-left"

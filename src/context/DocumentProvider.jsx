@@ -30,10 +30,135 @@ import {
 export const VerificationStateContext = createContext(null);
 export const VerificationDispatchContext = createContext(null);
 
+const getInitialDemoState = () => ({
+  verificationRequests: [
+    {
+      id: 'req-iowa-admission',
+      organizationId: 'org-iowa',
+      organizationName: 'Iowa State University',
+      serviceId: 'service-iowa-degree',
+      serviceName: 'Graduate Admissions matching',
+      ownerEmail: 'student@localhost',
+      status: 'Information Requested',
+      progress: 72,
+      requestDate: 'Jul 11, 2026',
+      submittedDocuments: [
+        { credentialId: 'cred-transcript-mock', documentId: 'doc-transcript-mock', type: 'Academic Transcript', fileName: 'academic-transcript.pdf' },
+        { credentialId: 'cred-ielts-mock', documentId: 'doc-ielts-mock', type: 'English Proficiency Score', fileName: 'ielts-report.pdf' }
+      ]
+    }
+  ],
+  organizationProfiles: defaultOrganizationProfiles.filter(org => org.category === 'University' || org.category === 'Credential Agency'),
+  verificationServices: [
+    { id: 'service-iowa-degree', organizationId: 'org-iowa', name: 'Graduate Admissions matching', status: 'Published' }
+  ],
+  credentialTemplates: [
+    { id: 'template-iowa', serviceId: 'service-iowa-degree', requiredCredentials: [{ type: 'Academic Transcript' }, { type: 'Passport' }] }
+  ],
+  credentials: [
+    { id: 'cred-transcript-mock', type: 'Academic Transcript', ownerEmail: 'student@localhost', status: 'Approved', verifiedAt: 'Jul 11, 2026', verifiedBy: 'Northbridge University', expiresAt: 'Jul 11, 2030', isReusable: true },
+    { id: 'cred-ielts-mock', type: 'English Proficiency Score', ownerEmail: 'student@localhost', status: 'Approved', verifiedAt: 'Jul 10, 2026', verifiedBy: 'British Council', expiresAt: 'Jul 10, 2029', isReusable: true },
+    { id: 'cred-resume-mock', type: 'Professional Resume', ownerEmail: 'student@localhost', status: 'Approved', verifiedAt: 'Jul 09, 2026', verifiedBy: 'Self-issued', expiresAt: 'Jul 09, 2028', isReusable: true }
+  ],
+  documents: [
+    { id: 'doc-transcript-mock', credentialId: 'cred-transcript-mock', fileName: 'academic-transcript.pdf', version: 1, uploadedAt: 'Jul 11, 2026', uploadMode: 'local', storageStatus: 'disabled' },
+    { id: 'doc-ielts-mock', credentialId: 'cred-ielts-mock', fileName: 'ielts-report.pdf', version: 1, uploadedAt: 'Jul 10, 2026', uploadMode: 'local', storageStatus: 'disabled' },
+    { id: 'doc-resume-mock', credentialId: 'cred-resume-mock', fileName: 'resume-2026.pdf', version: 1, uploadedAt: 'Jul 09, 2026', uploadMode: 'local', storageStatus: 'disabled' }
+  ],
+  activities: [
+    { id: 'act-1', type: 'Approved', title: 'Academic Transcript Verified', desc: 'Accreditation ledger registry matched Northbridge Academic Transcript with 100% confidence.', timestamp: 'Jul 11, 2026' },
+    { id: 'act-2', type: 'Approved', title: 'IELTS Score Card Verified', desc: 'British Council registry validated English competency minimum parameters.', timestamp: 'Jul 10, 2026' }
+  ],
+  users: [
+    { id: 'usr-1', email: 'student@localhost', name: 'John Doe', role: 'student', status: 'Active' },
+    { id: 'usr-2', email: 'admin@localhost', name: 'Admin Jane', role: 'super_admin', status: 'Active' }
+  ],
+  auditLogs: [],
+  platformSettings: { allowNewRegistrations: true, maintenanceMode: false, requireVerificationReview: true },
+  loading: false,
+  ready: true,
+  toasts: []
+});
+
 export function DocumentProvider({ children }) {
   const { currentUser, userProfile } = useAuth();
   const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [notifications, setNotifications] = useState([]);
+  const [demoState, setDemoState] = useState(() => getInitialDemoState());
+
+  useEffect(() => {
+    const handleUpload = (e) => {
+      const { fileName, fileUrl } = e.detail;
+      setDemoState(prev => {
+        const nextDocs = [...prev.documents, {
+          id: 'doc-passport-mock',
+          credentialId: 'cred-passport-mock',
+          fileName,
+          fileUrl,
+          version: 1,
+          uploadedAt: new Date().toLocaleDateString(),
+          uploadMode: 'local',
+          storageStatus: 'disabled'
+        }];
+        
+        const nextCreds = [...prev.credentials, {
+          id: 'cred-passport-mock',
+          type: 'Passport',
+          ownerEmail: 'student@localhost',
+          status: 'Approved',
+          verifiedAt: new Date().toLocaleDateString(),
+          verifiedBy: 'Government Clearinghouse',
+          expiresAt: 'Jul 11, 2036',
+          isReusable: true
+        }];
+
+        const nextRequests = prev.verificationRequests.map(req => {
+          if (req.id === 'req-iowa-admission') {
+            return {
+              ...req,
+              status: 'Approved',
+              progress: 96,
+              submittedDocuments: [
+                ...req.submittedDocuments,
+                { credentialId: 'cred-passport-mock', documentId: 'doc-passport-mock', type: 'Passport', fileName }
+              ]
+            };
+          }
+          return req;
+        });
+
+        const nextActivities = [
+          {
+            id: `act-${Date.now()}`,
+            type: 'Approved',
+            title: 'Passport Verified',
+            desc: 'Government identity clearinghouse registry matched digital signatures.',
+            timestamp: new Date().toLocaleDateString()
+          },
+          ...prev.activities
+        ];
+
+        return {
+          ...prev,
+          documents: nextDocs,
+          credentials: nextCreds,
+          verificationRequests: nextRequests,
+          activities: nextActivities
+        };
+      });
+    };
+
+    const handleReset = () => {
+      setDemoState(getInitialDemoState());
+    };
+
+    window.addEventListener('unicrypt-demo-upload', handleUpload);
+    window.addEventListener('unicrypt-demo-reset', handleReset);
+    return () => {
+      window.removeEventListener('unicrypt-demo-upload', handleUpload);
+      window.removeEventListener('unicrypt-demo-reset', handleReset);
+    };
+  }, []);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -816,10 +941,10 @@ export function DocumentProvider({ children }) {
   );
 
   const stateContextValue = useMemo(() => ({
-    ...state,
+    ...demoState,
     notifications,
     selectedRequestId
-  }), [state, notifications, selectedRequestId]);
+  }), [demoState, notifications, selectedRequestId]);
 
   return (
     <VerificationStateContext.Provider value={stateContextValue}>
