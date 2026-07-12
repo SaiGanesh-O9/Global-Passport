@@ -457,6 +457,73 @@ export default function UserDashboard() {
           {/* Main Dashboard Col 1 & 2: Requests & Directory Preview */}
           <div className="lg:col-span-2 space-y-6">
             <DocumentTable />
+
+            {/* Active Vault Documents list */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xs font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                  Secure Credential Vault™ Documents
+                </h3>
+                <button 
+                  onClick={() => { window.location.hash = '#vault'; }}
+                  className="text-[10px] font-extrabold uppercase tracking-wider text-blue-650 dark:text-blue-400 hover:underline outline-none"
+                >
+                  Manage Vault &rarr;
+                </button>
+              </div>
+
+              <div className="bg-white/70 dark:bg-[#12131a]/60 border border-slate-200/80 dark:border-slate-850/60 rounded-2xl p-5 space-y-3">
+                {(credentials || []).map(cred => {
+                  const docFile = (documents || []).find(d => d.credentialId === cred.id || d.id === cred.id);
+                  return (
+                    <div 
+                      key={cred.id} 
+                      onClick={() => {
+                        window.dispatchEvent(new CustomEvent('unicrypt.workspace.open', {
+                          detail: {
+                            id: `doc.${cred.id}`,
+                            type: 'document',
+                            title: cred.type,
+                            subtitle: docFile?.fileName || 'Secure Document',
+                            val: cred.status,
+                            detail: `Issued by: ${cred.verifiedBy || 'Self-signed'}. Status: ${cred.status}.`
+                          }
+                        }));
+                      }}
+                      className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-900/60 rounded-xl transition-all cursor-pointer border border-transparent hover:border-slate-200/50 dark:hover:border-slate-800/30 group"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="h-8 w-8 rounded-lg bg-blue-500/10 dark:bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-450 shrink-0">
+                          📄
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                            {cred.type}
+                          </p>
+                          <p className="text-[10px] text-slate-450 dark:text-slate-500 font-semibold truncate mt-0.5">
+                            {docFile?.fileName || `${cred.type.toLowerCase().replace(/\s+/g, '-')}.pdf`} • {docFile?.uploadedAt || 'Verified'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 text-[9px] font-extrabold tracking-wide uppercase rounded ${
+                          cred.status === 'Approved' 
+                            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-450' 
+                            : 'bg-amber-500/10 text-amber-700 dark:text-amber-450'
+                        }`}>
+                          {cred.status === 'Approved' ? 'Verified' : cred.status}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+                {(credentials || []).length === 0 && (
+                  <div className="text-center py-6 text-xs font-semibold text-slate-400 dark:text-slate-555">
+                    No credentials stored in vault yet.
+                  </div>
+                )}
+              </div>
+            </div>
             
             {/* Directory Preview Section */}
             <div className="space-y-4">
