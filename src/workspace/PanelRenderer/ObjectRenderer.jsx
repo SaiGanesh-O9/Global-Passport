@@ -184,7 +184,21 @@ I performed a secure OCR scan audit on this document artifact:
   if (obj.type === 'document') {
     return (
       <div className="p-5 space-y-5 animate-in fade-in duration-200">
-        <div className="p-4 bg-slate-50 dark:bg-slate-950/40 rounded-2xl flex items-center justify-center border border-slate-200/50 dark:border-slate-850/50 shadow-inner h-32 relative group overflow-hidden">
+        <div 
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent('unicrypt-open-document-viewer', {
+              detail: {
+                id: obj.id || 'doc-mock',
+                fileName: obj.subtitle || 'passport.pdf',
+                uploadedAt: new Date().toLocaleDateString(),
+                version: 1,
+                uploadMode: 'local',
+                storageStatus: 'disabled'
+              }
+            }));
+          }}
+          className="p-4 bg-slate-50 dark:bg-slate-950/40 rounded-2xl flex items-center justify-center border border-slate-200/50 dark:border-slate-850/50 shadow-inner h-32 relative group overflow-hidden cursor-pointer"
+        >
           <FileText className="h-10 w-10 text-slate-400 group-hover:scale-105 transition-transform duration-300" />
           <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[10px] font-black text-white uppercase tracking-wider bg-black/30 backdrop-blur-xs select-none">
             Click to View Document

@@ -625,17 +625,6 @@ export function createInitialDocumentState() {
       isExpired: false
     },
     {
-      id: 'cred-passport',
-      type: 'Passport',
-      ownerEmail: 'student@localhost',
-      status: 'Approved',
-      verifiedAt: 'Jun 10, 2026',
-      verifiedBy: 'City Civic Office',
-      expiresAt: 'Jun 10, 2030',
-      isReusable: true,
-      isExpired: false
-    },
-    {
       id: 'cred-degree',
       type: 'Degree Certificate',
       ownerEmail: 'student@localhost',
@@ -656,16 +645,6 @@ export function createInitialDocumentState() {
       fileUrl: '',
       version: 1,
       uploadedAt: 'Jun 15, 2026',
-      uploadMode: 'local',
-      storageStatus: 'disabled'
-    },
-    {
-      id: 'doc-passport',
-      credentialId: 'cred-passport',
-      fileName: 'passport.pdf',
-      fileUrl: '',
-      version: 1,
-      uploadedAt: 'Jun 10, 2026',
       uploadMode: 'local',
       storageStatus: 'disabled'
     },

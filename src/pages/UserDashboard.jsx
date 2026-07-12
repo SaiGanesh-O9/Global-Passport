@@ -225,8 +225,16 @@ export default function UserDashboard() {
       }
     };
 
+    const handleOpenDocumentViewer = (e) => {
+      setSelectedViewerDoc(e.detail);
+    };
+
     window.addEventListener('unicrypt-ai-action', handleAiAction);
-    return () => window.removeEventListener('unicrypt-ai-action', handleAiAction);
+    window.addEventListener('unicrypt-open-document-viewer', handleOpenDocumentViewer);
+    return () => {
+      window.removeEventListener('unicrypt-ai-action', handleAiAction);
+      window.removeEventListener('unicrypt-open-document-viewer', handleOpenDocumentViewer);
+    };
   }, [documents, organizationProfiles]);
 
   const [notifPrefs, setNotifPrefs] = useState({

@@ -158,8 +158,16 @@ export function DocumentProvider({ children }) {
       });
     };
 
-    const handleReset = () => {
+    const handleReset = async () => {
       setDemoState(getInitialDemoState());
+      try {
+        await deleteDoc(doc(db, 'credentials', 'cred-passport'));
+        await deleteDoc(doc(db, 'documents', 'doc-passport'));
+        await deleteDoc(doc(db, 'credentials', 'cred-passport-mock'));
+        await deleteDoc(doc(db, 'documents', 'doc-passport-mock'));
+      } catch (err) {
+        console.warn("Firestore reset error:", err.message);
+      }
     };
 
     window.addEventListener('unicrypt-demo-upload', handleUpload);
