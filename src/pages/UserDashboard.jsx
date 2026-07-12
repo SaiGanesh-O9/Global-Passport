@@ -271,6 +271,7 @@ export default function UserDashboard() {
   const renderDashboardView = () => {
     const hasPassport = (credentials || []).some(c => c.type === 'Passport' && c.status === 'Approved');
     const progressPercent = hasPassport ? 96 : 87;
+    const verifiedCount = (credentials || []).filter(c => c.status === 'Approved').length;
 
     return (
       <div className="space-y-8 animate-in fade-in duration-300">
@@ -994,14 +995,14 @@ export default function UserDashboard() {
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Student Profile</h2>
-          <p className="text-[11px] text-slate-500 dark:text-slate-450 mt-1 font-semibold">
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Individual Profile</h2>
+          <p className="text-[11px] text-slate-500 dark:text-slate-455 mt-1 font-semibold">
             Manage your personal data credentials.
           </p>
         </div>
         <Card className="p-6 max-w-md bg-white dark:bg-[#12131a] border border-slate-205 dark:border-slate-800/40">
           <div className="space-y-3 text-xs font-semibold text-slate-700 dark:text-slate-300">
-            <p>Name: <strong className="text-slate-950 dark:text-white font-extrabold">Student User</strong></p>
+            <p>Name: <strong className="text-slate-950 dark:text-white font-extrabold">Individual User</strong></p>
             <p>Email: <strong className="text-slate-950 dark:text-white font-extrabold">{currentUser?.email || 'student@localhost'}</strong></p>
             <p>Verification Tier: <strong className="text-emerald-600 font-extrabold">Tier 2 Verified</strong></p>
           </div>

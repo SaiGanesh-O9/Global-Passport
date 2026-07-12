@@ -73,6 +73,16 @@ const getInitialDemoState = () => ({
     { id: 'usr-1', email: 'student@localhost', name: 'John Doe', role: 'student', status: 'Active' },
     { id: 'usr-2', email: 'admin@localhost', name: 'Admin Jane', role: 'super_admin', status: 'Active' }
   ],
+  organizations: defaultOrganizationProfiles.filter(org => org.category === 'University' || org.category === 'Credential Agency').map(org => ({
+    id: org.id,
+    organizationId: org.id,
+    name: org.name,
+    type: org.category || 'University',
+    status: org.status || 'Active',
+    verificationStatus: 'Verified',
+    website: org.website || '',
+    officialEmailDomain: org.contactEmail ? org.contactEmail.split('@')[1] : ''
+  })),
   auditLogs: [],
   platformSettings: { allowNewRegistrations: true, maintenanceMode: false, requireVerificationReview: true },
   loading: false,

@@ -141,7 +141,7 @@ export default function Login() {
               <span className="bg-gradient-to-r from-blue-500 to-indigo-500 bg-clip-text text-transparent">Trust Everywhere.</span>
             </h1>
             <p className="text-base sm:text-lg text-slate-550 dark:text-slate-400 font-medium leading-relaxed max-w-lg">
-              UniCrypt is a secure credential vault connecting students and institutions to streamline academic and document verifications.
+              UniCrypt is a secure credential vault connecting individuals and institutions to streamline academic and document verifications.
             </p>
 
             {/* Micro Feature highlights */}
@@ -226,7 +226,7 @@ export default function Login() {
                           : 'text-slate-550 dark:text-slate-400 hover:text-slate-850 dark:hover:text-slate-200'
                       }`}
                     >
-                      👤 Student
+                      👤 Individual
                     </button>
                     <button
                       type="button"
@@ -261,7 +261,7 @@ export default function Login() {
                     type="email"
                     label="Email Address"
                     icon={Mail}
-                    placeholder={loginType === 'student' ? 'student@university.edu' : 'admin@accreditor.org'}
+                    placeholder={loginType === 'student' ? 'user@gmail.com' : 'admin@accreditor.org'}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={submitting}
@@ -329,7 +329,7 @@ export default function Login() {
                   className="w-full py-3 px-4 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-850 text-xs font-extrabold text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center gap-2.5 transition-all cursor-pointer disabled:opacity-50 active:scale-[0.98]"
                 >
                   <span className="text-base shrink-0">👤</span>
-                  <span className="flex-1 text-left uppercase tracking-wider text-[10px]">Login as Student User</span>
+                  <span className="flex-1 text-left uppercase tracking-wider text-[10px]">Login as Individual User</span>
                 </button>
                 
                 <button
