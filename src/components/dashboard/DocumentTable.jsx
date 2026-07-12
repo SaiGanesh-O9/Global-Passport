@@ -220,8 +220,21 @@ export default function DocumentTable() {
                 return (
                   <React.Fragment key={req.id}>
                     <tr 
-                      onClick={() => setSelectedRequest(req)}
-                      className={`${highlightClass} transition-all duration-300 cursor-pointer`}
+                      onClick={() => {
+                        window.dispatchEvent(new CustomEvent('unicrypt.workspace.open', {
+                          detail: {
+                            id: `verification.${req.id}`,
+                            type: 'verification',
+                            title: req.credentialType,
+                            subtitle: `Request routed to ${orgName}`,
+                            status: req.status,
+                            val: req.status,
+                            detail: `Issued on ${req.requestDate} via encrypted compliance protocol.`
+                          }
+                        }));
+                      }}
+                      onDoubleClick={() => setSelectedRequest(req)}
+                      className={`${highlightClass} transition-all duration-300 cursor-pointer select-none`}
                     >
                       <td className="px-5 py-4 font-bold text-slate-900 dark:text-slate-100">
                         {req.credentialType}

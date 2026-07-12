@@ -35,17 +35,17 @@ export default function AccessDenied() {
     if (role === 'student') {
       return {
         title: "Wrong role",
-        description: "This feature is available for Organizations. Student profiles cannot access verifier tools.",
-        actionText: "Go to Student Dashboard",
+        description: "This feature is available for Organizations. User profiles cannot access verifier tools.",
+        actionText: "Go to My Workspace",
         actionTo: "/dashboard"
       };
     }
 
     if (role === 'organization') {
       return {
-        title: "Admin only",
-        description: "This page requires administrator access.",
-        actionText: "Go to Verifier Center",
+        title: "Wrong role",
+        description: "This feature is available for Users. Organization profiles cannot access vault tools.",
+        actionText: "Go to My Workspace",
         actionTo: "/institution"
       };
     }
@@ -53,7 +53,7 @@ export default function AccessDenied() {
     return {
       title: "Access Denied",
       description: "You do not have the required permissions to access this page.",
-      actionText: "Go to Dashboard",
+      actionText: "Go to My Workspace",
       actionTo: "/dashboard"
     };
   };

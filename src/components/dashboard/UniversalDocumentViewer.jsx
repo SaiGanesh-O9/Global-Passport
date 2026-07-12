@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Card from '../ui/Card.jsx';
 import {
   X,
@@ -11,7 +11,8 @@ import {
   History,
   FileText,
   ShieldCheck,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { ChevronLeft, ChevronRight, Hand, Layers, RotateCcw } from 'lucide-react';
 
@@ -23,6 +24,32 @@ export default function UniversalDocumentViewer({ document, onClose }) {
   const [showHighlights, setShowHighlights] = useState(false);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const dragRef = useRef(null);
+
+  const [scanning, setScanning] = useState(true);
+  const [scanLogIndex, setScanLogIndex] = useState(0);
+  const scanLogs = [
+    'Detecting page boundaries...',
+    'Straightening alignment...',
+    'Removing shadows & enhancing contrast...',
+    'Running OCR text extraction...',
+    'Indexing metadata with registry...'
+  ];
+
+  useEffect(() => {
+    if (!scanning) return;
+    const timer = setInterval(() => {
+      setScanLogIndex(prev => {
+        if (prev >= scanLogs.length - 1) {
+          clearInterval(timer);
+          setScanning(false);
+          setShowHighlights(true);
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, 450);
+    return () => clearInterval(timer);
+  }, [scanning]);
 
   if (!document) return null;
 
@@ -50,6 +77,14 @@ export default function UniversalDocumentViewer({ document, onClose }) {
   };
 
   const endPan = () => { dragRef.current = null; };
+
+  const highlights = [
+    { label: 'Name', val: 'Minnu Radha', top: '15%', left: '20%', width: '30%', height: '5%', desc: 'Extracted name matches passport profile.' },
+    { label: 'GPA', val: '3.91 / 4.00', top: '48%', left: '72%', width: '15%', height: '5%', desc: 'GPA meets the admission threshold.' },
+    { label: 'Degree', val: 'Bachelor of Science', top: '30%', left: '20%', width: '45%', height: '6%', desc: 'Degree verified via accredited partner database.' },
+    { label: 'Graduation Date', val: 'June 12, 2025', top: '78%', left: '20%', width: '25%', height: '5%', desc: 'Term date matches official academic record.' },
+    { label: 'Registrar Seal', val: 'OFFICIAL SEAL', top: '82%', left: '70%', width: '18%', height: '12%', desc: 'Cryptographic seal signature verified.' }
+  ];
 
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 dark:bg-black/90 backdrop-blur-md transition-all duration-200 ${
@@ -155,6 +190,29 @@ export default function UniversalDocumentViewer({ document, onClose }) {
 
         {/* Viewport Area */}
         <div className="flex-1 flex overflow-hidden bg-slate-100 dark:bg-slate-950 relative">
+          
+          {scanning && (
+            <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm z-30 flex items-center justify-center">
+              <Card className="p-6 bg-white dark:bg-[#12131a] border border-slate-205 dark:border-slate-800/40 rounded-2xl shadow-xl max-w-sm w-full space-y-4 text-center select-none animate-in fade-in zoom-in duration-300">
+                <div className="relative h-1 w-full bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-blue-600 rounded-full transition-all duration-300 ease-out" 
+                    style={{ width: `${(scanLogIndex + 1) * 20}%` }}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center justify-center gap-2">
+                    <Loader2 className="h-3.5 w-3.5 text-blue-600 animate-spin" />
+                    UniCrypt Vision™ Scanning
+                  </h4>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-450 font-bold uppercase tracking-wider animate-pulse mt-1">
+                    {scanLogs[scanLogIndex]}
+                  </p>
+                </div>
+              </Card>
+            </div>
+          )}
+
           <div className="flex-1 flex items-center justify-center overflow-hidden p-4">
             {isPdf ? (
               fileUrl ? (
@@ -186,11 +244,34 @@ export default function UniversalDocumentViewer({ document, onClose }) {
                   alt="Document Preview"
                   className="max-w-[85vw] max-h-[70vh] rounded-xl shadow-lg object-contain bg-white dark:bg-[#12131a] border border-slate-200/50 dark:border-slate-800/35"
                 />
-                {showHighlights && (
-                  <div className="pointer-events-none absolute inset-[12%] rounded-lg border border-dashed border-violet-400/80 bg-violet-500/5">
-                    <span className="absolute -top-5 left-0 rounded bg-violet-600 px-1.5 py-0.5 text-[8px] font-bold text-white">Vision overlay layer</span>
+                {showHighlights && highlights.map((hl, i) => (
+                  <div
+                    key={i}
+                    className="absolute border border-dashed border-emerald-500 hover:border-solid hover:bg-emerald-500/10 transition-all rounded cursor-pointer group z-20"
+                    style={{
+                      top: hl.top,
+                      left: hl.left,
+                      width: hl.width,
+                      height: hl.height,
+                      pointerEvents: 'auto'
+                    }}
+                  >
+                    {/* Glowing highlight indicator */}
+                    <span className="absolute -top-4.5 left-0 bg-emerald-600 dark:bg-emerald-500 text-white font-extrabold text-[7px] uppercase px-1 py-0.5 rounded leading-none opacity-80 select-none shadow">
+                      {hl.label}
+                    </span>
+
+                    {/* Tooltip detail card */}
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-900/95 dark:bg-slate-950/95 text-white p-3 rounded-xl shadow-xl opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto transition-all duration-200 z-50 text-[10px] space-y-1.5 leading-normal border border-slate-700/50">
+                      <div className="flex justify-between items-center">
+                        <span className="font-extrabold text-emerald-400 uppercase text-[8px] tracking-wider font-sans">UniCrypt Vision™</span>
+                        <span className="font-bold text-[8px] text-slate-400">99.8% Accuracy</span>
+                      </div>
+                      <p className="font-bold text-xs text-white">{hl.val}</p>
+                      <p className="text-slate-300 text-[9px] font-semibold">{hl.desc}</p>
+                    </div>
                   </div>
-                )}
+                ))}
               </div>
             )}
           </div>

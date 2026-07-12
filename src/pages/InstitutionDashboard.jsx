@@ -33,10 +33,10 @@ import {
 } from 'lucide-react';
 
 export const institutionNavItems = [
-  { label: 'Dashboard', to: '/institution#dashboard', icon: BarChart3 },
+  { label: 'My Workspace', to: '/institution#dashboard', icon: BarChart3 },
   { label: 'Verification Services', to: '/institution#services', icon: Layers },
   { label: 'Credential Templates', to: '/institution#templates', icon: ClipboardList },
-  { label: 'Incoming Requests', to: '/institution#requests', icon: ShieldAlert },
+  { label: 'Active Verifications', to: '/institution#requests', icon: ShieldAlert },
   { label: 'Profile', to: '/institution#profile', icon: User },
   { label: 'Settings', to: '/institution#settings', icon: Settings },
 ];
@@ -71,7 +71,6 @@ export default function InstitutionDashboard() {
   };
   const {
     metrics,
-    verificationRequests,
     organizationProfiles,
     verificationServices,
     credentialTemplates
@@ -127,7 +126,7 @@ export default function InstitutionDashboard() {
   const [notifPrefs, setNotifPrefs] = useState(() => {
     const saved = localStorage.getItem(`notif_prefs_${currentOrgId}`);
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try { return JSON.parse(saved); } catch (err) { console.warn(err); }
     }
     return {
       delivery: { email: true, inApp: true, push: false },

@@ -18,12 +18,30 @@ export default function OrganizationHero({ org }) {
     }
   };
 
+  const getBannerImage = (id) => {
+    switch (id) {
+      case 'org-stanford':
+        return 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1200&q=80';
+      case 'org-iowastate':
+        return 'https://images.unsplash.com/photo-1498243691581-b145c3f54a91?auto=format&fit=crop&w=1200&q=80';
+      case 'org-ucm':
+        return 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80';
+      default:
+        return 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80';
+    }
+  };
+
   return (
     <div className="relative rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-850/60 shadow-sm bg-white dark:bg-[#0f111a]/40">
       
-      {/* Banner Cover with school color gradient */}
-      <div className="h-44 sm:h-56 w-full relative">
-        <div className={`absolute inset-0 bg-gradient-to-tr ${getGradientClass(org.id)} opacity-90`} />
+      {/* Banner Cover with school photography cover and gradient overlay */}
+      <div className="h-44 sm:h-56 w-full relative overflow-hidden">
+        <img
+          src={getBannerImage(org.id)}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover filter brightness-[0.6] contrast-[1.05] scale-101 select-none pointer-events-none"
+        />
+        <div className={`absolute inset-0 bg-gradient-to-tr ${getGradientClass(org.id)} opacity-45 mix-blend-multiply`} />
         
         {/* Modern Stripe grid layout overlay */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0c_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0c_1px,transparent_1px)] bg-[size:14px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />

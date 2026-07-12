@@ -110,7 +110,7 @@ body {
 
 /* UniCrypt OS reserves workspace room for its persistent desktop panel. */
 .unicrypt-os-workspace {
-  padding-right: var(--unicrypt-os-width, 35vw);
+  padding-right: 0;
   transition: padding-right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -163,4 +163,98 @@ body {
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* ==========================================
+   UNICRYPT DESIGN LANGUAGE 2.0: SURFACE UTILITIES
+   ========================================== */
+
+/* Level 1: Background & Primary Surface (Solid premium card, no border) */
+.surface-primary {
+  background-color: #ffffff !important;
+  border-color: transparent !important;
+  border-width: 0px !important;
+  border-radius: 28px !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04), 0 2px 8px -1px rgba(0, 0, 0, 0.02) !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.dark .surface-primary {
+  background-color: #12131a !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.2), 0 2px 8px -1px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Level 2: Elevated Card (Subtle hover lift, no border) */
+.surface-elevated {
+  background-color: #ffffff !important;
+  border-color: transparent !important;
+  border-width: 0px !important;
+  border-radius: 28px !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.06), 0 4px 12px -2px rgba(0, 0, 0, 0.02) !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.dark .surface-elevated {
+  background-color: #161822 !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.25), 0 4px 12px -2px rgba(0, 0, 0, 0.15) !important;
+}
+.surface-elevated:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1), 0 10px 20px -5px rgba(0, 0, 0, 0.04) !important;
+}
+.dark .surface-elevated:hover {
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.35), 0 10px 20px -5px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Level 3: Floating Dock/Popover (Apple's Liquid Glass translucent look) */
+.surface-floating {
+  background-color: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-color: transparent !important;
+  border-width: 0px !important;
+  border-radius: 32px !important;
+  box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.12), 0 10px 20px -5px rgba(0, 0, 0, 0.04) !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.dark .surface-floating {
+  background-color: rgba(18, 19, 26, 0.85) !important;
+  box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.4), 0 10px 20px -5px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Level 4: Modal & Spotlight View */
+.surface-modal {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border-color: transparent !important;
+  border-width: 0px !important;
+  border-radius: 36px !important;
+  box-shadow: 0 30px 65px -12px rgba(0, 0, 0, 0.22), 0 15px 30px -10px rgba(0, 0, 0, 0.08) !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.dark .surface-modal {
+  background-color: rgba(18, 19, 26, 0.95) !important;
+  box-shadow: 0 30px 65px -12px rgba(0, 0, 0, 0.5), 0 15px 30px -10px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* 5. Inset input style shadows */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+textarea,
+select {
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.03) !important;
+  border-radius: 12px !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+textarea:focus,
+select:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
 }

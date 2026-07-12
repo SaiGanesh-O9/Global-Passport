@@ -1,7 +1,6 @@
 import { createContext, useMemo, useReducer, useEffect, useRef, useState } from 'react';
 import { db, collection, onSnapshot, addDoc, doc, setDoc, updateDoc, deleteDoc, arrayUnion, query, where, orderBy, limit, getDoc } from '../firebase/firebase.js';
 import { useAuth } from '../hooks/useAuth.js';
-import { askAI } from '../ai/gateway/index.js';
 import { sendNotification } from '../services/notificationService.js';
 import {
   setVerificationRequests,
@@ -321,7 +320,8 @@ export function DocumentProvider({ children }) {
         if (userProfile.role === 'super_admin' || userProfile.role === 'student') {
           const initialRequests = createInitialDocumentState(currentUser.uid).verificationRequests;
           initialRequests.forEach(async (req) => {
-            const { id, ...data } = req;
+            const data = { ...req };
+            delete data.id;
             const mappedData = {
               ...data,
               ownerEmail: userProfile.email || currentUser.email || 'student@localhost',

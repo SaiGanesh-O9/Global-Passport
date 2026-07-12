@@ -106,8 +106,8 @@ function getPreferencesForUser(userId) {
   if (localPrefs) {
     try {
       return JSON.parse(localPrefs);
-    } catch (e) {
-      // Fallback to default below
+    } catch (err) {
+      console.warn("Failed to parse local preferences:", err.message);
     }
   }
 

@@ -11,15 +11,16 @@ import UniversalDocumentViewer from '../components/dashboard/UniversalDocumentVi
 import { FileText, LayoutDashboard, Settings, Upload, Mail, Search, Building2, CheckCircle2, Globe, ChevronRight, Shield, Activity, User, Clock, AlertCircle, FileCheck, Download, Eye, Bot, CheckCircle } from 'lucide-react';
 import AIPreferences from '../components/ui/AIPreferences.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
+import { useOrganizations } from '../context/OrganizationContext.jsx';
 
 const OrganizationsPage = lazy(() => import('./OrganizationsPage.jsx'));
 
 export const userNavItems = [
-  { label: 'Dashboard', to: '/dashboard#dashboard', icon: LayoutDashboard },
+  { label: 'My Workspace', to: '/dashboard#dashboard', icon: LayoutDashboard },
   { label: 'Organizations', to: '/dashboard#organizations', icon: Building2 },
-  { label: 'Credential Vault', to: '/dashboard#vault', icon: Shield },
-  { label: 'Verification Requests', to: '/dashboard#requests', icon: FileText },
-  { label: 'Recent Activity', to: '/dashboard#activity', icon: Activity },
+  { label: 'Credential Vault™', to: '/dashboard#vault', icon: Shield },
+  { label: 'Active Verifications', to: '/dashboard#requests', icon: FileText },
+  { label: 'Timeline™', to: '/dashboard#activity', icon: Activity },
   { label: 'Profile', to: '/dashboard#profile', icon: User },
   { label: 'Settings', to: '/dashboard#settings', icon: Settings },
 ];
@@ -48,10 +49,25 @@ function ActivityFeed() {
             const dotColor = isApproved ? 'bg-emerald-500 ring-emerald-500/20' : isRejected ? 'bg-rose-500 ring-rose-500/20' : isNew ? 'bg-blue-500 ring-blue-500/20' : 'bg-amber-500 ring-amber-500/20';
 
             return (
-              <div key={act.id} className="flex gap-3 text-xs leading-relaxed">
+              <div 
+                key={act.id} 
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('unicrypt.workspace.open', {
+                    detail: {
+                      id: `timeline.${act.id}`,
+                      type: 'timeline',
+                      title: act.title,
+                      subtitle: `Checkpoint registered today`,
+                      val: act.type || 'Audit Log',
+                      detail: act.desc
+                    }
+                  }));
+                }}
+                className="flex gap-3 text-xs leading-relaxed cursor-pointer p-2 hover:bg-slate-50 dark:hover:bg-slate-900/40 rounded-xl transition-all select-none"
+              >
                 <span className={`h-2 w-2 rounded-full mt-1.5 shrink-0 ring-4 ${dotColor}`}></span>
                 <div className="flex-1">
-                  <p className="font-bold text-slate-850 dark:text-slate-200">{act.title}</p>
+                  <p className="font-bold text-slate-855 dark:text-slate-200">{act.title}</p>
                   <p className="text-slate-555 dark:text-slate-400 font-semibold mt-0.5">{act.desc}</p>
                   <span className="text-[10px] text-slate-400 dark:text-slate-500 block mt-1 font-bold">
                     {isNaN(Date.parse(act.timestamp)) ? act.timestamp : new Date(act.timestamp).toLocaleString()}
@@ -102,6 +118,7 @@ export default function UserDashboard() {
     documents
   } = useDocuments();
 
+  const { selectedOrgData } = useOrganizations();
   const location = useLocation();
   const activeTab = location.hash.replace('#', '') || 'dashboard';
 
@@ -109,6 +126,8 @@ export default function UserDashboard() {
   const [resolveRequest, setResolveRequest] = useState(null);
   const [selectedDiscoveryOrg, setSelectedDiscoveryOrg] = useState(null);
   const [orgSearchQuery, setOrgSearchQuery] = useState('');
+  const [presetDocType, setPresetDocType] = useState(null);
+  const [presetReason, setPresetReason] = useState(null);
 
   useEffect(() => {
     const handleGlobalSearch = (e) => {
@@ -117,9 +136,99 @@ export default function UserDashboard() {
     window.addEventListener('unicrypt-global-search', handleGlobalSearch);
     return () => window.removeEventListener('unicrypt-global-search', handleGlobalSearch);
   }, []);
+  useEffect(() => {
+    const handleOpenDoc = (event) => {
+      const docId = event.detail?.id;
+      const match = documents.find(d => d.id === docId);
+      if (match) setSelectedViewerDoc(match);
+    };
+    window.addEventListener('unicrypt-action-open-doc', handleOpenDoc);
+    return () => window.removeEventListener('unicrypt-action-open-doc', handleOpenDoc);
+  }, [documents]);
   
+  useEffect(() => {
+    const handleToolUpload = (event) => {
+      const { documentType, reason } = event.detail || {};
+      setPresetDocType(documentType || 'Transcript');
+      setPresetReason(reason || '');
+      setIsUploadModalOpen(true);
+    };
+
+    const handleToolRequestDocument = (event) => {
+      const { documentType, reason } = event.detail || {};
+      setPresetDocType(documentType || 'Transcript');
+      setPresetReason(reason || '');
+      setIsUploadModalOpen(true);
+    };
+
+    window.addEventListener('unicrypt-tool-upload', handleToolUpload);
+    window.addEventListener('unicrypt-tool-request-document', handleToolRequestDocument);
+    return () => {
+      window.removeEventListener('unicrypt-tool-upload', handleToolUpload);
+      window.removeEventListener('unicrypt-tool-request-document', handleToolRequestDocument);
+    };
+  }, []);
   // Vault filter tab state: 'Verified' | 'Pending' | 'Requested' | 'Rejected' | 'Expired'
   const [vaultFilter, setVaultFilter] = useState('Verified');
+  const [vaultSearch, setVaultSearch] = useState('');
+  const [selectedVaultDocId, setSelectedVaultDocId] = useState(null);
+  const [selectedTimelineEventId, setSelectedTimelineEventId] = useState(null);
+
+  const [bottomDockEnabled, setBottomDockEnabled] = useState(() => {
+    return localStorage.getItem('unicrypt_bottom_dock_navigation') !== 'false';
+  });
+
+  const toggleBottomDock = (val) => {
+    setBottomDockEnabled(val);
+    localStorage.setItem('unicrypt_bottom_dock_navigation', val ? 'true' : 'false');
+    window.dispatchEvent(new CustomEvent('unicrypt-bottom-dock-toggle', { detail: { enabled: val } }));
+  };
+
+  useEffect(() => {
+    const handleAiAction = (event) => {
+      const action = event.detail || {};
+      if (action.type === 'VAULT_SELECT_DOC') {
+        window.location.hash = '#vault';
+        setSelectedVaultDocId(action.id);
+        
+        const match = documents.find(d => d.id === action.id || d.credentialId === action.id);
+        if (match) {
+          setSelectedViewerDoc(match);
+        } else if (action.id === 'cred-transcript-mock') {
+          const essayDoc = documents.find(d => d.id.includes('essay') || d.fileName.toLowerCase().includes('transcript'));
+          if (essayDoc) setSelectedViewerDoc(essayDoc);
+        }
+      } else if (action.type === 'VAULT_FILTER') {
+        window.location.hash = '#vault';
+        setVaultFilter(action.filter);
+      } else if (action.type === 'TIMELINE_HIGHLIGHT') {
+        window.location.hash = '#activity';
+        setSelectedTimelineEventId(action.id);
+      } else if (action.type === 'OPEN_MODAL' && action.modal === 'upload') {
+        if (action.params?.orgId) {
+          const org = (organizationProfiles || []).find(o => o.id === action.params.orgId);
+          if (org) {
+            setSelectedDiscoveryOrg(org);
+          }
+        }
+        setIsUploadModalOpen(true);
+      } else if (action.type === 'OPEN_UPLOAD') {
+        if (action.presetDocType) {
+          setPresetDocType(action.presetDocType);
+          setPresetReason(action.presetReason || 'Prerequisite Upload');
+        }
+        setIsUploadModalOpen(true);
+      } else if (action.type === 'SWITCH_TAB') {
+        if (action.hash === '#vault' && action.params?.filter) {
+          setVaultFilter(action.params.filter);
+        }
+      }
+    };
+
+    window.addEventListener('unicrypt-ai-action', handleAiAction);
+    return () => window.removeEventListener('unicrypt-ai-action', handleAiAction);
+  }, [documents, organizationProfiles]);
+
   const [notifPrefs, setNotifPrefs] = useState({
     delivery: { email: true, inApp: true, push: false },
     events: { verification: true, credential: true, organization: true, admin: true, security: true, system: true },
@@ -130,7 +239,7 @@ export default function UserDashboard() {
     if (currentUser?.uid) {
       const saved = localStorage.getItem(`notif_prefs_${currentUser.uid}`);
       if (saved) {
-        try { setNotifPrefs(JSON.parse(saved)); } catch (e) {}
+        try { setNotifPrefs(JSON.parse(saved)); } catch (e) { console.warn(e); }
       }
     }
   }, [currentUser]);
@@ -143,26 +252,7 @@ export default function UserDashboard() {
   };
   const [selectedViewerDoc, setSelectedViewerDoc] = useState(null);
 
-  useEffect(() => {
-    const handleAIAction = (e) => {
-      const action = e.detail;
-      if (action.type === 'OPEN_MODAL' && action.modal === 'upload') {
-        if (action.params?.orgId) {
-          const org = (organizationProfiles || []).find(o => o.id === action.params.orgId);
-          if (org) {
-            setSelectedDiscoveryOrg(org);
-          }
-        }
-        setIsUploadModalOpen(true);
-      } else if (action.type === 'SWITCH_TAB') {
-        if (action.hash === '#vault' && action.params?.filter) {
-          setVaultFilter(action.params.filter);
-        }
-      }
-    };
-    window.addEventListener('unicrypt-ai-action', handleAIAction);
-    return () => window.removeEventListener('unicrypt-ai-action', handleAIAction);
-  }, [organizationProfiles]);
+
 
   const incomingRequests = (userVerificationRequests || []).filter(req => req.status === 'Information Requested');
 
@@ -176,27 +266,6 @@ export default function UserDashboard() {
     return nameMatches || categoryMatches || serviceMatches;
   });
 
-  // Filter vault credentials
-  const filteredCredentials = useMemo(() => {
-    return (credentials || []).filter(c => {
-      if (vaultFilter === 'Verified') {
-        return c.status === 'Approved' && !c.isExpired;
-      }
-      if (vaultFilter === 'Pending') {
-        return c.status === 'Pending';
-      }
-      if (vaultFilter === 'Requested') {
-        return c.status === 'Requested' || c.status === 'Information Requested';
-      }
-      if (vaultFilter === 'Rejected') {
-        return c.status === 'Rejected';
-      }
-      if (vaultFilter === 'Expired') {
-        return c.isExpired;
-      }
-      return true;
-    });
-  }, [credentials, vaultFilter]);
 
   // 1. Render Dashboard Main Panel (Redesigned for Premium v0.95 UX)
   const renderDashboardView = () => {
@@ -207,23 +276,79 @@ export default function UserDashboard() {
     return (
       <div className="space-y-8 animate-in fade-in duration-300">
         
-        {/* Welcome Back Header */}
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400">
-            Secure Workspace
-          </span>
-          <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            {getGreeting()}
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 font-semibold leading-relaxed max-w-2xl">
-            Monitor verified credentials, pending institutional actions, and browse accredited partner organizations.
-          </p>
+        {/* Journey Snapshot Header banner */}
+        <div className="bg-white/70 dark:bg-[#12131a]/60 border border-slate-200 dark:border-slate-800/40 rounded-2xl p-6 shadow-sm relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-indigo-500/5 to-transparent pointer-events-none" />
+          
+          <div className="space-y-2 relative z-10">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse animate-in fade-in" />
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                My Workspace
+              </span>
+            </div>
+            <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              {getGreeting()}
+            </h1>
+            
+            <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs font-semibold text-slate-600 dark:text-slate-350">
+              <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 px-2 py-0.5 rounded-lg border border-slate-200/50 dark:border-slate-800/50">
+                {localStorage.getItem('unicrypt_active_journey') === 'Career' ? '💼 Career' : localStorage.getItem('unicrypt_active_journey') === 'Immigration' ? '🌍 Immigration' : '🎓 Education'}
+              </span>
+              <span className="text-slate-400 dark:text-slate-500">•</span>
+              <span>
+                Target: <strong className="text-slate-800 dark:text-slate-200">{selectedOrgData?.profile?.name || 'Iowa State University'}</strong>
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6 relative z-10 border-t md:border-t-0 md:border-l border-slate-200/60 dark:border-slate-800/40 pt-4 md:pt-0 md:pl-6">
+            <div className="space-y-1">
+              <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-450 dark:text-slate-500">
+                UniCrypt Match™
+              </span>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-3xl font-extrabold text-blue-600 dark:text-blue-400">91%</span>
+                <span className="text-[10px] font-extrabold text-emerald-500 uppercase animate-pulse">Excellent</span>
+              </div>
+              <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                1 credential missing · Readiness estimated: <strong className="text-slate-700 dark:text-slate-300">Today</strong>
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                if (selectedOrgData) {
+                  window.location.hash = `#organizations?id=${selectedOrgData.profile.id}`;
+                } else {
+                  window.location.hash = '#organizations';
+                }
+              }}
+              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-750 text-white text-[11px] font-extrabold uppercase tracking-wider rounded-xl shadow-sm hover:shadow active:scale-95 transition-all outline-none cursor-pointer shrink-0"
+            >
+              Continue Journey
+            </button>
+          </div>
         </div>
 
         {/* Confidence Progress & Actions Stack */}
         <div className="grid gap-6 md:grid-cols-2">
           {/* Application Confidence */}
-          <Card className="p-6 bg-white/70 dark:bg-[#0f111a]/60 border border-slate-200/80 dark:border-slate-850/60 shadow-sm rounded-2xl relative overflow-hidden flex flex-col justify-between group">
+          <Card 
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('unicrypt.workspace.open', {
+                detail: {
+                  id: 'metric.credential_readiness',
+                  type: 'metric',
+                  title: 'Credential Readiness Index',
+                  subtitle: 'Overall portfolio authenticity benchmarks',
+                  val: `${progressPercent}%`,
+                  detail: `${verifiedCount} of ${(credentials || []).length} items are signed and verified by accredited partner clearinghouses.`
+                }
+              }));
+            }}
+            className="p-6 bg-white/70 dark:bg-[#0f111a]/60 border border-slate-200/80 dark:border-slate-850/60 shadow-sm rounded-2xl relative overflow-hidden flex flex-col justify-between group cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-150"
+          >
             <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none" />
             <div>
               <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest block">
@@ -347,10 +472,22 @@ export default function UserDashboard() {
                 {filteredDiscoveryOrgs.slice(0, 2).map((org) => (
                   <Card 
                     key={org.id} 
-                    className="p-5 bg-white/70 dark:bg-[#0f111a]/60 border border-slate-205 dark:border-slate-850/60 shadow-sm hover:border-blue-500/10 hover:shadow-md transition-all duration-200 flex flex-col justify-between gap-4 rounded-2xl"
+                    onClick={() => {
+                      window.dispatchEvent(new CustomEvent('unicrypt.workspace.open', {
+                        detail: {
+                          id: `org.${org.id.replace(/[^a-zA-Z0-9_]/g, '_')}`,
+                          type: 'organization',
+                          title: org.name,
+                          subtitle: `${org.category} Registry Audit`,
+                          val: 'Accredited',
+                          detail: org.description
+                        }
+                      }));
+                    }}
+                    className="p-5 surface-elevated transition-all duration-200 flex flex-col justify-between gap-4 cursor-pointer hover:-translate-y-0.5"
                   >
                     <div>
-                      <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-blue-600/10 text-blue-600 dark:text-blue-450 tracking-wider">
+                       <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-blue-600/10 text-blue-600 dark:text-blue-450 tracking-wider">
                         {org.category}
                       </span>
                       <h4 className="text-sm font-extrabold text-slate-950 dark:text-white mt-2 leading-snug">
@@ -365,7 +502,7 @@ export default function UserDashboard() {
                         setSelectedDiscoveryOrg(org);
                         setIsUploadModalOpen(true);
                       }}
-                      className="w-full mt-1.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-850 text-[10px] font-extrabold uppercase tracking-wider text-slate-800 dark:text-slate-200 rounded-xl transition-all active:scale-[0.98] cursor-pointer outline-none border border-transparent"
+                      className="w-full mt-1.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-855 text-[10px] font-extrabold uppercase tracking-wider text-slate-800 dark:text-slate-200 rounded-xl transition-all active:scale-[0.98] cursor-pointer outline-none border border-transparent"
                     >
                       Verify Credential
                     </button>
@@ -381,14 +518,17 @@ export default function UserDashboard() {
             <ActivityFeed />
 
             {/* AI Insights & Assistant Panel */}
-            <Card className="p-5 bg-white/70 dark:bg-[#0f111a]/60 border border-slate-205 dark:border-slate-850/60 shadow-sm rounded-2xl relative overflow-hidden group">
+            <Card className="p-5 surface-primary relative overflow-hidden group">
               <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/5 to-transparent pointer-events-none" />
               <h3 className="text-xs font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5 mb-4">
                 <span className="text-blue-500">✦</span>
                 AI Copilot Suggestions
               </h3>
               <div className="space-y-3.5">
-                <div className="p-3 bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/10 rounded-xl space-y-1.5">
+                <div 
+                  onClick={() => window.dispatchEvent(new CustomEvent('unicrypt-os-prompt', { detail: { prompt: 'Explain Stanford admission criteria.' } }))}
+                  className="p-3 bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/10 rounded-xl space-y-1.5 cursor-pointer hover:bg-blue-500/10 transition-all"
+                >
                   <h4 className="text-[11px] font-bold text-slate-950 dark:text-white flex items-center gap-1 uppercase tracking-wider">
                     📝 Missing IELTS Prerequisite
                   </h4>
@@ -396,20 +536,27 @@ export default function UserDashboard() {
                     Stanford University requires IELTS. Submit your score card to clear outstanding checklists.
                   </p>
                   <button 
-                    onClick={() => window.dispatchEvent(new CustomEvent('unicrypt-os-prompt', { detail: { prompt: 'Explain Stanford admission criteria.' } }))}
                     className="text-[9px] font-extrabold uppercase text-blue-600 dark:text-blue-450 hover:underline block outline-none mt-1"
                   >
                     Ask Copilot &rarr;
                   </button>
                 </div>
                 
-                <div className="p-3 bg-slate-100/50 dark:bg-slate-900/50 border border-slate-200/50 dark:border-slate-800/40 rounded-xl space-y-1.5">
+                <div 
+                  onClick={() => { window.location.hash = '#vault'; }}
+                  className="p-3 bg-slate-100/50 dark:bg-slate-900/50 border border-slate-200/50 dark:border-slate-800/40 rounded-xl space-y-1.5 cursor-pointer hover:bg-slate-200/40 dark:hover:bg-slate-800/30 transition-all"
+                >
                   <h4 className="text-[11px] font-bold text-slate-950 dark:text-white flex items-center gap-1 uppercase tracking-wider">
                     🎓 Verify Transcripts
                   </h4>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
                     Your transcript credential status is pending registrar verification review.
                   </p>
+                  <button 
+                    className="text-[9px] font-extrabold uppercase text-blue-600 dark:text-blue-450 hover:underline block outline-none mt-1"
+                  >
+                    View Vault Status &rarr;
+                  </button>
                 </div>
               </div>
             </Card>
@@ -421,15 +568,81 @@ export default function UserDashboard() {
     );
   };
 
-  // 2. Render Tabbed Credential Vault View
+  const vaultDocuments = useMemo(() => {
+    const list = [...credentials];
+    
+    const hasTranscript = list.some(c => c.type === 'Academic Transcript');
+    const hasPassport = list.some(c => c.type === 'Passport');
+    const hasIelts = list.some(c => c.type === 'IELTS Score');
+    const hasResume = list.some(c => c.type === 'Resume');
+    
+    if (!hasTranscript) {
+      list.push({
+        id: 'cred-transcript-mock',
+        type: 'Academic Transcript',
+        status: 'Approved',
+        verifiedBy: 'Northbridge University',
+        verifiedAt: 'Jul 03, 2026',
+        expiresAt: 'Jul 03, 2030',
+        isReusable: true,
+        isExpired: false
+      });
+    }
+    if (!hasPassport) {
+      list.push({
+        id: 'cred-passport-mock',
+        type: 'Passport',
+        status: 'Approved',
+        verifiedBy: 'City Civic Office',
+        verifiedAt: 'Jul 02, 2026',
+        expiresAt: 'Jul 02, 2030',
+        isReusable: true,
+        isExpired: false
+      });
+    }
+    if (!hasIelts) {
+      list.push({
+        id: 'cred-ielts-mock',
+        type: 'IELTS Score',
+        status: 'Pending',
+        verifiedBy: 'British Council',
+        verifiedAt: 'Jul 05, 2026',
+        expiresAt: 'Sep 10, 2026',
+        isReusable: true,
+        isExpired: false
+      });
+    }
+    if (!hasResume) {
+      list.push({
+        id: 'cred-resume-mock',
+        type: 'Resume',
+        status: 'Needs Update',
+        verifiedBy: 'Self Registered',
+        verifiedAt: 'Jan 10, 2025',
+        expiresAt: 'Jan 10, 2026',
+        isReusable: false,
+        isExpired: true
+      });
+    }
+    
+    return list.filter(item => {
+      const matchesSearch = item.type.toLowerCase().includes(vaultSearch.toLowerCase());
+      const matchesFilter = vaultFilter === 'All' || 
+                            (vaultFilter === 'Verified' && item.status === 'Approved' && !item.isExpired) ||
+                            (vaultFilter === 'Pending' && item.status === 'Pending') ||
+                            (vaultFilter === 'Needs Update' && item.status === 'Needs Update') ||
+                            (vaultFilter === 'Expired' && item.isExpired);
+      return matchesSearch && matchesFilter;
+    });
+  }, [credentials, vaultSearch, vaultFilter]);
   const renderVaultView = () => {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 animate-in fade-in duration-300">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 dark:border-slate-800/40 pb-4">
           <div>
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Credential Vault</h2>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Credential Vault™</h2>
             <p className="text-[11px] text-slate-555 dark:text-slate-455 mt-1 font-semibold">
-              Upload once, and safely reuse your credentials for instant organization verifications.
+              Decentralized document intelligence workspace. Manage, share, and analyze your cryptographically verified records.
             </p>
           </div>
           <Button icon={Upload} onClick={() => setIsUploadModalOpen(true)} className="shrink-0">
@@ -437,96 +650,163 @@ export default function UserDashboard() {
           </Button>
         </div>
 
-        {/* Vault tabs switcher */}
-        <div className="flex border-b border-slate-200 dark:border-slate-800/50 gap-4 text-xs font-bold text-slate-500 pb-px">
-          {['Verified', 'Pending', 'Requested', 'Rejected', 'Expired'].map(t => {
-            const isActive = vaultFilter === t;
-            return (
-              <button
-                key={t}
-                onClick={() => setVaultFilter(t)}
-                className={`pb-2.5 px-1 relative transition-colors duration-150 cursor-pointer ${
-                  isActive ? 'text-blue-600 dark:text-blue-400 font-extrabold border-b-2 border-blue-600 dark:border-blue-400' : 'hover:text-slate-800 dark:hover:text-slate-300 font-bold'
-                }`}
-              >
-                {t}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredCredentials.length > 0 ? (
-            filteredCredentials.map(cred => {
-              // Find matching document version
-              const matchedDoc = documents.find(d => d.credentialId === cred.id);
-              return (
-                <Card key={cred.id} className="p-5 bg-white dark:bg-[#12131a] border border-slate-205 dark:border-slate-800/40 shadow-sm flex flex-col justify-between gap-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-start">
-                      <h4 className="text-xs font-bold text-slate-950 dark:text-white">{cred.type}</h4>
-                      <span className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-lg ${
-                        cred.isExpired ? 'bg-rose-500/10 text-rose-700' : 'bg-emerald-500/10 text-emerald-700'
-                      }`}>
-                        {cred.isExpired ? 'Expired' : cred.status}
-                      </span>
-                    </div>
-
-                    {matchedDoc?.fileName && (
-                      <p className="text-[10px] text-slate-450 dark:text-slate-500 truncate font-semibold">
-                        File: {matchedDoc.fileName}
-                      </p>
-                    )}
-
-                    <div className="text-[10px] text-slate-500 font-semibold space-y-0.5">
-                      {cred.verifiedBy && <p>Verified By: {cred.verifiedBy}</p>}
-                      {cred.expiresAt && <p>Expires: {cred.expiresAt}</p>}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between pt-2 border-t border-slate-100 dark:border-slate-850">
+        {/* Workspace Layout Grid */}
+        <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+          
+          {/* Main workspace column */}
+          <div className="space-y-6">
+            {/* Search and Filters */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search Documents..."
+                  value={vaultSearch}
+                  onChange={(e) => setVaultSearch(e.target.value)}
+                  className="w-full bg-white dark:bg-[#12131a] border border-slate-250 dark:border-slate-800/80 rounded-xl pl-10 pr-4 py-2 text-xs font-bold placeholder-slate-450 dark:placeholder-slate-500 outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 dark:text-white"
+                />
+              </div>
+              <div className="flex border border-slate-250 dark:border-slate-800/60 rounded-xl overflow-hidden text-[10px] font-bold">
+                {['All', 'Verified', 'Pending', 'Needs Update', 'Expired'].map(t => {
+                  const isActive = vaultFilter === t;
+                  return (
                     <button
-                      onClick={() => matchedDoc && setSelectedViewerDoc(matchedDoc)}
-                      disabled={!matchedDoc}
-                      className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 disabled:opacity-50"
+                      key={t}
+                      onClick={() => setVaultFilter(t)}
+                      className={`px-3 py-2 cursor-pointer transition-colors ${
+                        isActive ? 'bg-blue-600 text-white font-extrabold' : 'bg-white dark:bg-[#12131a] hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-600 dark:text-slate-400'
+                      }`}
                     >
-                      <Eye className="h-3.5 w-3.5" />
-                      Preview
+                      {t}
                     </button>
-                    {matchedDoc?.fileUrl && (
-                      <a
-                        href={matchedDoc.fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:underline flex items-center gap-1"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        Download
-                      </a>
-                    )}
-                  </div>
-                </Card>
-              );
-            })
-          ) : (
-            <div className="col-span-3">
-              <EmptyState
-                title="Empty Vault Category"
-                description="No matching credentials or verified records were found in this vault partition."
-                actionLabel="Upload New Document"
-                onAction={() => {
-                  window.dispatchEvent(
-                    new CustomEvent('unicrypt-ai-action', {
-                      detail: {
-                        type: 'OPEN_MODAL',
-                        modal: 'upload'
-                      }
-                    })
                   );
-                }}
-              />
+                })}
+              </div>
             </div>
-          )}
+
+            {/* Document Cards List */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              {vaultDocuments.length === 0 ? (
+                <div className="sm:col-span-2 p-10 text-center text-slate-400 font-bold uppercase tracking-wider border-2 border-dashed border-slate-100 dark:border-slate-800/50 rounded-2xl bg-white/40 dark:bg-black/10">
+                  No matching vault credentials located.
+                </div>
+              ) : (
+                vaultDocuments.map(cred => {
+                  const isSelected = selectedVaultDocId === cred.id;
+                  const isExpired = cred.isExpired || cred.status === 'Needs Update';
+                  const isPending = cred.status === 'Pending';
+                  
+                  const statusBg = isExpired ? 'bg-rose-500/10 text-rose-700 dark:text-rose-450 border border-rose-500/10' :
+                                   isPending ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/10' :
+                                   'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/10';
+                                   
+                  return (
+                    <Card
+                      key={cred.id}
+                      onClick={() => setSelectedVaultDocId(cred.id)}
+                      className={`p-5 cursor-pointer relative transition-all duration-200 bg-white dark:bg-[#12131a] border ${
+                        isSelected 
+                          ? 'border-blue-500 ring-2 ring-blue-500/10 shadow-md scale-[1.01]' 
+                          : 'border-slate-205 dark:border-slate-850 hover:border-blue-500/30'
+                      }`}
+                    >
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-start">
+                          <span className="text-xs font-black text-slate-900 dark:text-white block truncate max-w-[160px]">{cred.type}</span>
+                          <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${statusBg}`}>
+                            {cred.isExpired ? 'Expired' : cred.status}
+                          </span>
+                        </div>
+                        <div className="space-y-1 text-[9px] font-semibold text-slate-500 dark:text-slate-455 border-t border-slate-100 dark:border-slate-850/40 pt-2">
+                          <p>Verified By: <strong className="text-slate-800 dark:text-slate-200">{cred.verifiedBy || 'Self'}</strong></p>
+                          <p>Expiry: <strong className="text-slate-800 dark:text-slate-200">{cred.expiresAt || 'Never'}</strong></p>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Sidebar Column */}
+          <div className="space-y-6">
+            {/* Smart Actions Card */}
+            <Card className="p-5 bg-white dark:bg-[#12131a] border border-slate-205 dark:border-slate-850 space-y-4">
+              <h3 className="text-xs font-black text-slate-855 dark:text-white uppercase tracking-wider border-b border-slate-100 dark:border-slate-855/50 pb-2">Smart Actions</h3>
+              <div className="grid gap-2 text-[10px] font-bold">
+                <button
+                  onClick={() => {
+                    const match = vaultDocuments.find(d => d.id === selectedVaultDocId);
+                    if (match) {
+                      const fileMatch = documents.find(docObj => docObj.credentialId === match.id || docObj.fileName.toLowerCase().includes('transcript') || docObj.id.includes('essay'));
+                      if (fileMatch) setSelectedViewerDoc(fileMatch);
+                      else alert('Mock document preview loaded.');
+                    } else {
+                      alert('Please select a credential from the list first.');
+                    }
+                  }}
+                  className="w-full text-left py-2 px-3 hover:bg-slate-50 dark:hover:bg-slate-900/60 text-slate-700 dark:text-slate-300 rounded-lg cursor-pointer transition-colors"
+                >
+                  📄 Open in Vision™
+                </button>
+                <button
+                  onClick={() => {
+                    if (selectedVaultDocId) {
+                      window.dispatchEvent(new CustomEvent('unicrypt-os-prompt', { detail: { prompt: `Compare requirements for this document` } }));
+                    } else {
+                      alert('Please select a credential first.');
+                    }
+                  }}
+                  className="w-full text-left py-2 px-3 hover:bg-slate-50 dark:hover:bg-slate-900/60 text-slate-700 dark:text-slate-300 rounded-lg cursor-pointer transition-colors"
+                >
+                  ⚖ Compare Transcript
+                </button>
+                <button
+                  onClick={() => alert('Secure sharing link copied to clipboard.')}
+                  className="w-full text-left py-2 px-3 hover:bg-slate-50 dark:hover:bg-slate-900/60 text-slate-700 dark:text-slate-300 rounded-lg cursor-pointer transition-colors"
+                >
+                  🔗 Share Secure Link
+                </button>
+                <button
+                  onClick={() => alert('Generated cryptographic verification bundle.')}
+                  className="w-full text-left py-2 px-3 hover:bg-slate-50 dark:hover:bg-slate-900/60 text-slate-700 dark:text-slate-300 rounded-lg cursor-pointer transition-colors"
+                >
+                  📦 Generate Verification Package
+                </button>
+              </div>
+            </Card>
+
+            {/* Recent Activity Card */}
+            <Card className="p-5 bg-white dark:bg-[#12131a] border border-slate-205 dark:border-slate-850 space-y-4">
+              <h3 className="text-xs font-black text-slate-850 dark:text-white uppercase tracking-wider border-b border-slate-100 dark:border-slate-850/50 pb-2">Recent Activity</h3>
+              <div className="space-y-3.5 text-[10px] font-semibold text-slate-550 dark:text-slate-400">
+                <div className="flex gap-2">
+                  <span className="text-emerald-500">✔</span>
+                  <div>
+                    <p className="font-bold text-slate-855 dark:text-slate-250">Transcript analyzed</p>
+                    <p className="text-[8px] text-slate-400 mt-0.5">Updated 3 days ago</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-emerald-500">✔</span>
+                  <div>
+                    <p className="font-bold text-slate-855 dark:text-slate-250">Passport verified</p>
+                    <p className="text-[8px] text-slate-400 mt-0.5">Updated 1 week ago</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-amber-500">⚠</span>
+                  <div>
+                    <p className="font-bold text-slate-855 dark:text-slate-250">Resume expires in 3 months</p>
+                    <p className="text-[8px] text-slate-400 mt-0.5">System warning check</p>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+
         </div>
       </div>
     );
@@ -549,9 +829,159 @@ export default function UserDashboard() {
 
   // 4. Activity Logs View
   const renderActivityView = () => {
+    const timelineEvents = [
+      {
+        id: 'event-today-upload',
+        time: 'Today',
+        title: 'Transcript Uploaded',
+        description: 'Official academic transcript received by the local vault.',
+        type: 'document',
+        badge: 'Success',
+        badgeColor: 'bg-emerald-500/10 text-emerald-700',
+        actionText: 'View Document',
+        onAction: () => {
+          const match = documents.find(d => d.fileName.toLowerCase().includes('transcript') || d.id.includes('essay'));
+          if (match) setSelectedViewerDoc(match);
+          else alert('Mock document loaded in preview.');
+        }
+      },
+      {
+        id: 'event-today-ocr',
+        time: 'Today',
+        title: 'OCR Scanning Complete',
+        description: 'UniCrypt Vision™ extracted 45 transcript scoring modules with 99.4% confidence index.',
+        type: 'vision',
+        badge: 'Vision™',
+        badgeColor: 'bg-indigo-500/10 text-indigo-700',
+        actionText: 'Ask AI Explanation',
+        onAction: () => window.dispatchEvent(new CustomEvent('unicrypt-os-prompt', { detail: { prompt: 'Explain the OCR extraction details' } }))
+      },
+      {
+        id: 'event-today-gpa',
+        time: 'Today',
+        title: 'GPA Extracted',
+        description: 'Verified cumulative GPA of 3.85 mapped to registry standards.',
+        type: 'metrics',
+        badge: 'GPA',
+        badgeColor: 'bg-blue-500/10 text-blue-700',
+        actionText: 'Check Readiness',
+        onAction: () => window.dispatchEvent(new CustomEvent('unicrypt-os-prompt', { detail: { prompt: 'What is my credential readiness score?' } }))
+      },
+      {
+        id: 'event-today-readiness',
+        time: 'Today',
+        title: 'Readiness Index Updated',
+        description: 'Admissions readiness index updated to 82% match rating.',
+        type: 'readiness',
+        badge: 'Score',
+        badgeColor: 'bg-emerald-500/10 text-emerald-700',
+        actionText: 'Compare Stanford',
+        onAction: () => window.dispatchEvent(new CustomEvent('unicrypt-os-prompt', { detail: { prompt: 'Compare my readiness with Stanford requirements' } }))
+      },
+      {
+        id: 'event-yesterday-passport',
+        time: 'Yesterday',
+        title: 'Passport Uploaded',
+        description: 'Valid national passport stored securely in decentralized vault.',
+        type: 'document',
+        badge: 'Success',
+        badgeColor: 'bg-emerald-500/10 text-emerald-700',
+        actionText: 'View Passport',
+        onAction: () => {
+          const match = documents.find(d => d.fileName.toLowerCase().includes('passport') || d.id === 'doc-passport');
+          if (match) setSelectedViewerDoc(match);
+          else alert('Mock document preview loaded.');
+        }
+      },
+      {
+        id: 'event-yesterday-requirements',
+        time: 'Yesterday',
+        title: 'Requirements Refreshed',
+        description: 'Iowa State University application template updated in context rules.',
+        type: 'workflow',
+        badge: 'Iowa State',
+        badgeColor: 'bg-amber-500/10 text-amber-700',
+        actionText: 'Open Organization',
+        onAction: () => {
+          setSelectedDiscoveryOrg({ id: 'org-iowa', name: 'Iowa State University' });
+          window.location.hash = '#organizations';
+        }
+      },
+      {
+        id: 'event-lastweek-workflow',
+        time: 'Last Week',
+        title: 'Education Workflow Initiated',
+        description: 'Graduate admission matching protocol launched for WES and Stanford.',
+        type: 'workflow',
+        badge: 'Initiated',
+        badgeColor: 'bg-blue-500/10 text-blue-700',
+        actionText: 'Explain Workflow',
+        onAction: () => window.dispatchEvent(new CustomEvent('unicrypt-os-prompt', { detail: { prompt: 'Explain my active workflows' } }))
+      }
+    ];
+
     return (
-      <div className="space-y-6">
-        <ActivityFeed />
+      <div className="space-y-6 animate-in fade-in duration-300">
+        <div>
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">UniCrypt Timeline™</h2>
+          <p className="text-[11px] text-slate-555 dark:text-slate-455 mt-1 font-semibold">
+            GitHub-style activity ledger tracking document extraction, validation events, and registry uploads.
+          </p>
+        </div>
+
+        <div className="relative border-l-2 border-slate-200 dark:border-slate-800 ml-4 pl-6 space-y-8 py-2">
+          {timelineEvents.map((evt) => {
+            const isSelected = selectedTimelineEventId === evt.id;
+            return (
+              <div key={evt.id} className="relative group/evt">
+                {/* Timeline Dot Indicator */}
+                <span className={`absolute -left-[31px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full border-2 bg-white dark:bg-[#090a0f] transition-all duration-200 ${
+                  isSelected ? 'border-blue-500 scale-125 ring-4 ring-blue-500/20 animate-pulse' : 'border-slate-300 dark:border-slate-700 group-hover/evt:border-blue-500/50'
+                }`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${isSelected ? 'bg-blue-500' : 'bg-slate-350 dark:bg-slate-650'}`} />
+                </span>
+
+                {/* Event Card Content */}
+                <div 
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('unicrypt.workspace.open', {
+                      detail: {
+                        id: `timeline.${evt.id}`,
+                        type: 'timeline',
+                        title: evt.title,
+                        subtitle: `${evt.category} Checkpoint · Registered ${evt.time}`,
+                        val: evt.status || 'Audited',
+                        detail: evt.description
+                      }
+                    }));
+                  }}
+                  className={`p-5 rounded-2xl border transition-all duration-200 bg-white dark:bg-[#12131a] cursor-pointer hover:-translate-y-0.5 hover:shadow-sm select-none ${
+                    isSelected ? 'border-blue-500 ring-2 ring-blue-500/10 shadow-md scale-[1.01]' : 'border-slate-205 dark:border-slate-850 hover:border-slate-300 dark:hover:border-slate-800'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                    <div>
+                      <span className="text-[9px] font-black text-slate-400 dark:text-slate-550 uppercase tracking-widest block mb-0.5">{evt.time}</span>
+                      <h4 className="text-xs font-black text-slate-900 dark:text-white">{evt.title}</h4>
+                      <p className="text-[10px] text-slate-550 dark:text-slate-400 font-semibold leading-relaxed mt-1">{evt.description}</p>
+                    </div>
+                    <div className="flex sm:flex-col items-end gap-2 shrink-0">
+                      <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${evt.badgeColor}`}>
+                        {evt.badge}
+                      </span>
+                      <button
+                        onClick={evt.onAction}
+                        className="text-[9px] font-extrabold text-blue-600 hover:text-blue-755 dark:text-blue-400 dark:hover:text-blue-300 cursor-pointer uppercase tracking-wider outline-none border-none bg-transparent p-0"
+                      >
+                        {evt.actionText} →
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   };
@@ -684,6 +1114,22 @@ export default function UserDashboard() {
               </select>
             </div>
           </Card>
+
+          {/* Navigation Mode */}
+          <Card className="p-6 bg-white dark:bg-[#12131a] border border-slate-205 dark:border-slate-800/40 space-y-4 md:col-span-2">
+            <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">4. Workspace Navigation Mode</h3>
+            <div className="space-y-3 pt-1 text-xs font-semibold text-slate-700 dark:text-slate-350">
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={bottomDockEnabled}
+                  onChange={(e) => toggleBottomDock(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 dark:border-slate-850 text-blue-600 focus:ring-blue-500"
+                />
+                <span>Enable Bottom Dock OS Navigation (Hides standard sidebar, switches to Spotlight spotlight window)</span>
+              </label>
+            </div>
+          </Card>
         </div>
 
         <div className="pt-4 max-w-4xl">
@@ -733,9 +1179,13 @@ export default function UserDashboard() {
           setIsUploadModalOpen(false);
           setResolveRequest(null);
           setSelectedDiscoveryOrg(null);
+          setPresetDocType(null);
+          setPresetReason(null);
         }}
         targetRequest={resolveRequest}
         initialSelectedOrg={selectedDiscoveryOrg}
+        presetDocumentType={presetDocType}
+        presetReason={presetReason}
       />
 
       {selectedViewerDoc && (

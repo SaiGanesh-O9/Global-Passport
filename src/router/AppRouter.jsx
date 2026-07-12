@@ -1,21 +1,60 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { createBrowserRouter, useRouteError } from 'react-router-dom';
-import InstitutionDashboard, { institutionNavItems } from '../pages/InstitutionDashboard.jsx';
-import LandingPage from '../pages/LandingPage.jsx';
-import NotFound from '../pages/NotFound.jsx';
-import UserDashboard, { userNavItems } from '../pages/UserDashboard.jsx';
-import VerificationPage from '../pages/VerificationPage.jsx';
-import AccessDenied from '../pages/AccessDenied.jsx';
-import Login from '../pages/Login.jsx';
 import RoleProtectedRoute from '../components/layout/RoleProtectedRoute.jsx';
 import RoleBasedLayoutWrapper from '../components/layout/RoleBasedLayoutWrapper.jsx';
-import AdminPortal from '../pages/AdminPortal.jsx';
+
+// Lazy loading views for high performance boundaries
+const LandingPage = React.lazy(() => import('../pages/LandingPage.jsx'));
+const Login = React.lazy(() => import('../pages/Login.jsx'));
+const NotFound = React.lazy(() => import('../pages/NotFound.jsx'));
+const AccessDenied = React.lazy(() => import('../pages/AccessDenied.jsx'));
+const VerificationPage = React.lazy(() => import('../pages/VerificationPage.jsx'));
+const AdminPortal = React.lazy(() => import('../pages/AdminPortal.jsx'));
+const UserDashboard = React.lazy(() => import('../pages/UserDashboard.jsx'));
+const InstitutionDashboard = React.lazy(() => import('../pages/InstitutionDashboard.jsx'));
+const DebugPage = React.lazy(() => import('../pages/DebugPage.jsx'));
+
+import { 
+  LayoutDashboard, Building2, Shield, FileText, Activity, User, Settings,
+  BarChart3, Layers, ClipboardList, ShieldAlert 
+} from 'lucide-react';
+
+const userNavItems = [
+  { label: 'My Workspace', to: '/dashboard#dashboard', icon: LayoutDashboard },
+  { label: 'Organizations', to: '/dashboard#organizations', icon: Building2 },
+  { label: 'Credential Vault™', to: '/dashboard#vault', icon: Shield },
+  { label: 'Active Verifications', to: '/dashboard#requests', icon: FileText },
+  { label: 'Timeline™', to: '/dashboard#activity', icon: Activity },
+  { label: 'Profile', to: '/dashboard#profile', icon: User },
+  { label: 'Settings', to: '/dashboard#settings', icon: Settings },
+];
+
+const institutionNavItems = [
+  { label: 'My Workspace', to: '/institution#dashboard', icon: BarChart3 },
+  { label: 'Verification Services', to: '/institution#services', icon: Layers },
+  { label: 'Credential Templates', to: '/institution#templates', icon: ClipboardList },
+  { label: 'Active Verifications', to: '/institution#requests', icon: ShieldAlert },
+  { label: 'Profile', to: '/institution#profile', icon: User },
+  { label: 'Settings', to: '/institution#settings', icon: Settings },
+];
+
+function LazyWrapper({ children }) {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 dark:bg-[#090a0f] flex items-center justify-center transition-theme">
+        <div className="h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      {children}
+    </Suspense>
+  );
+}
 
 function UserDashboardWithLayout() {
   return (
     <RoleBasedLayoutWrapper
       navItems={userNavItems}
-      title="User Dashboard"
+      title="My Workspace"
       subtitle="Manage verification requests and share verified credentials."
     >
       <UserDashboard />
@@ -27,7 +66,7 @@ function InstitutionDashboardWithLayout() {
   return (
     <RoleBasedLayoutWrapper
       navItems={institutionNavItems}
-      title="Organization Verification Center"
+      title="My Workspace"
       subtitle="Review verification requests from verified platform users."
     >
       <InstitutionDashboard />
@@ -41,7 +80,7 @@ function RootErrorBoundary() {
   
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#090a0f] flex items-center justify-center p-6 text-center select-none transition-theme">
-      <div className="max-w-md bg-white dark:bg-[#12131a] border border-slate-200 dark:border-slate-800 p-8 rounded-2xl shadow-xl space-y-4">
+      <div className="max-w-md bg-white dark:bg-[#12131a] border border-slate-205 dark:border-slate-800 p-8 rounded-2xl shadow-xl space-y-4">
         <span className="text-4xl">⚠️</span>
         <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Unexpected Application Error</h2>
         <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
@@ -61,24 +100,24 @@ function RootErrorBoundary() {
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <LandingPage />,
+    element: <LazyWrapper><LandingPage /></LazyWrapper>,
     errorElement: <RootErrorBoundary />
   },
   {
     path: '/login',
-    element: <Login />,
+    element: <LazyWrapper><Login /></LazyWrapper>,
     errorElement: <RootErrorBoundary />
   },
   {
     path: '/403',
-    element: <AccessDenied />,
+    element: <LazyWrapper><AccessDenied /></LazyWrapper>,
     errorElement: <RootErrorBoundary />
   },
   {
     path: '/admin',
     element: (
       <RoleProtectedRoute allowedRoles={['super_admin']}>
-        <AdminPortal />
+        <LazyWrapper><AdminPortal /></LazyWrapper>
       </RoleProtectedRoute>
     ),
     errorElement: <RootErrorBoundary />
@@ -87,7 +126,7 @@ export const router = createBrowserRouter([
     path: '/dashboard',
     element: (
       <RoleProtectedRoute allowedRoles={['student', 'employer', 'super_admin']}>
-        <UserDashboardWithLayout />
+        <LazyWrapper><UserDashboardWithLayout /></LazyWrapper>
       </RoleProtectedRoute>
     ),
     errorElement: <RootErrorBoundary />
@@ -96,18 +135,23 @@ export const router = createBrowserRouter([
     path: '/institution',
     element: (
       <RoleProtectedRoute allowedRoles={['organization', 'super_admin']}>
-        <InstitutionDashboardWithLayout />
+        <LazyWrapper><InstitutionDashboardWithLayout /></LazyWrapper>
       </RoleProtectedRoute>
     ),
     errorElement: <RootErrorBoundary />
   },
   {
     path: '/verify/:verificationId?',
-    element: <VerificationPage />,
+    element: <LazyWrapper><VerificationPage /></LazyWrapper>,
+    errorElement: <RootErrorBoundary />
+  },
+  {
+    path: '/debug',
+    element: <LazyWrapper><DebugPage /></LazyWrapper>,
     errorElement: <RootErrorBoundary />
   },
   {
     path: '*',
-    element: <NotFound />,
+    element: <LazyWrapper><NotFound /></LazyWrapper>,
   },
 ]);

@@ -611,7 +611,7 @@ export const globalCredentialCatalog = [
   "Signature"
 ];
 
-export function createInitialDocumentState(uid) {
+export function createInitialDocumentState() {
   const defaultCredentials = [
     {
       id: 'cred-essay',

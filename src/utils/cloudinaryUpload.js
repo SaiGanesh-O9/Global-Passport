@@ -13,8 +13,8 @@ export async function uploadToCloudinary(file) {
     let mockUrl = "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?auto=format&fit=crop&q=80&w=800";
     try {
       mockUrl = URL.createObjectURL(file);
-    } catch (e) {
-      // Fallback
+    } catch (err) {
+      console.warn("URL createObjectURL failed:", err.message);
     }
 
     return {
@@ -51,8 +51,8 @@ export async function uploadToCloudinary(file) {
     let mockUrl = "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?auto=format&fit=crop&q=80&w=800";
     try {
       mockUrl = URL.createObjectURL(file);
-    } catch (e) {
-      // Fallback
+    } catch (err) {
+      console.warn("URL createObjectURL failed:", err.message);
     }
     return {
       url: mockUrl,

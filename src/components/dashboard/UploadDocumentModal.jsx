@@ -1,7 +1,6 @@
 import React, { lazy, Suspense, useState, useEffect, useMemo } from 'react';
-import { db, collection, addDoc, doc, setDoc } from '../../firebase/firebase.js';
+import { db, doc, setDoc } from '../../firebase/firebase.js';
 import { useDocuments } from '../../hooks/useDocuments.js';
-import { useDocumentActions } from '../../hooks/useDocumentActions.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { uploadToCloudinary } from '../../utils/cloudinaryUpload.js';
 import { createDocumentId, createTimelineEntry, VERIFICATION_STATUS, formatRequestDate } from '../../context/documentUtils.js';
@@ -30,7 +29,7 @@ const CaptureStudio = lazy(() => import('./CaptureStudio.jsx'));
 
 const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg'];
 
-export default function UploadDocumentModal({ isOpen, onClose, targetRequest, initialSelectedOrg }) {
+export default function UploadDocumentModal({ isOpen, onClose, targetRequest, initialSelectedOrg, presetDocumentType, presetReason }) {
   const { currentUser, userProfile } = useAuth();
   const {
     organizationProfiles,
@@ -40,7 +39,6 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
     documents
   } = useDocuments();
 
-  const { requestVerification } = useDocumentActions();
 
   // Wizard state: 1: Select Organization, 2: Select Service, 3: Upload Files, 4: Review, 5: Success
   const [step, setStep] = useState(1);
@@ -52,14 +50,12 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
   
   // Files dictionary keyed by credential type: { [type]: File }
   const [files, setFiles] = useState({});
-  const [purpose, setPurpose] = useState('');
   const [consentApproved, setConsentApproved] = useState(false);
 
   // Submit states
   const [submitting, setSubmitting] = useState(false);
   const [submitProgress, setSubmitProgress] = useState('');
   const [error, setError] = useState('');
-  const [hasStorageError, setHasStorageError] = useState(false);
   const [captureTarget, setCaptureTarget] = useState(null);
 
   // AI Checklist Suggestion states
@@ -71,12 +67,15 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
     if (isOpen) {
       setError('');
       setFiles({});
-      setPurpose('');
       setConsentApproved(false);
       setSubmitting(false);
       setCaptureTarget(null);
 
-      if (targetRequest) {
+      if (presetDocumentType) {
+        setSelectedOrg(null);
+        setSelectedService(null);
+        setStep(3);
+      } else if (targetRequest) {
         // Find corresponding organization profile and service
         const orgProf = organizationProfiles.find(o => o.id === targetRequest.organizationId) || null;
         const service = verificationServices.find(s => s.id === targetRequest.serviceId) || null;
@@ -94,9 +93,14 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
         setStep(1);
       }
     }
-  }, [isOpen, targetRequest, initialSelectedOrg, organizationProfiles, verificationServices]);
+  }, [isOpen, targetRequest, initialSelectedOrg, organizationProfiles, verificationServices, presetDocumentType]);
 
   useEffect(() => {
+    if (presetDocumentType && isOpen) {
+      setLoadingAi(false);
+      setAiSuggestion(presetReason || `UniCrypt AI recommends uploading a clear, high-resolution scan of your ${presetDocumentType}. Make sure it is issued officially and contains all necessary authorization seals.`);
+      return undefined;
+    }
     if (selectedService && selectedOrg && isOpen) {
       setLoadingAi(true);
       setAiSuggestion('');
@@ -104,7 +108,6 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
       const timer = setTimeout(() => {
         let suggestion = '';
         const orgType = selectedOrg.category || 'University';
-        const serviceName = selectedService.name;
         
         if (orgType === 'University') {
           suggestion = `UniCrypt AI recommends uploading a clear, high-resolution scan of your Degree Certificate and complete Semester Transcripts. If your documents are in a language other than English, attaching a certified translation is highly recommended.`;
@@ -124,7 +127,7 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
 
       return () => clearTimeout(timer);
     }
-  }, [selectedService, selectedOrg, isOpen]);
+  }, [selectedService, selectedOrg, isOpen, presetDocumentType, presetReason]);
 
   // Derived filter calculations
   const filteredOrgs = useMemo(() => {
@@ -147,6 +150,14 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
 
   // Build Checklist and Reuse Logic
   const checklist = useMemo(() => {
+    if (presetDocumentType) {
+      return [{
+        type: presetDocumentType,
+        required: true,
+        isVerified: false,
+        verifiedCred: null
+      }];
+    }
     if (!selectedTemplate) return [];
     const requirements = [
       ...(selectedTemplate.requiredCredentials || []).map(c => ({ ...c, required: true })),
@@ -166,7 +177,7 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
         verifiedCred
       };
     });
-  }, [selectedTemplate, credentials]);
+  }, [selectedTemplate, credentials, presetDocumentType]);
 
   // Progress metrics
   const completedCount = useMemo(() => {
@@ -176,29 +187,6 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
   const totalCount = checklist.length;
   const progressPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
-  // File dropzone handlers
-  const handleFileValidation = (file, constraint) => {
-    const fileName = file.name.toLowerCase();
-    const isValidExt = ALLOWED_EXTENSIONS.some((ext) => fileName.endsWith(ext));
-    if (!isValidExt) {
-      setError(`Invalid file type for ${file.name}. Only PDF, PNG, JPG, and JPEG are allowed.`);
-      return false;
-    }
-    const maxSize = constraint?.maxFileSize || 5242880;
-    if (file.size > maxSize) {
-      setError(`File size too large: ${file.name}. Maximum size allowed is ${Math.round(maxSize / 1024 / 1024)}MB.`);
-      return false;
-    }
-    return true;
-  };
-
-  const handleFileChange = (type, e, constraint) => {
-    setError('');
-    const file = e.target.files?.[0];
-    if (file && handleFileValidation(file, constraint)) {
-      setFiles(prev => ({ ...prev, [type]: file }));
-    }
-  };
 
   const handleClose = () => {
     setStep(1);
@@ -235,7 +223,6 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
       const isResolving = !!targetRequest;
       const newRequestId = isResolving ? targetRequest.id : createDocumentId();
       const documentReferences = [];
-      let storageErrorOccurred = false;
 
       // Process and upload each new file
       for (const [credType, file] of Object.entries(files)) {
@@ -253,7 +240,6 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
           fileUrl = URL.createObjectURL(file);
           uploadMode = 'local';
           storageStatus = 'disabled';
-          storageErrorOccurred = true;
         }
 
         // 1. Create a Credential record in Firestore if not already existing
@@ -309,6 +295,11 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
         }
       });
 
+      if (presetDocumentType) {
+        setStep(5);
+        return;
+      }
+
       setSubmitProgress('Submitting verification request...');
 
       // Save verification request details safely resolving any null org/service contexts
@@ -339,7 +330,6 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
       };
 
       await setDoc(doc(db, 'verificationRequests', newRequestId), requestPayload);
-      setHasStorageError(storageErrorOccurred);
       setStep(5);
     } catch (err) {
       console.error(err);
@@ -594,10 +584,10 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
                   </div>
 
                   <div className="flex justify-between pt-4 border-t border-slate-200/50 dark:border-slate-800/40">
-                    <Button icon={ArrowLeft} onClick={() => setStep(2)} variant="secondary">
+                    <Button icon={ArrowLeft} onClick={() => setStep(2)} variant="secondary" disabled={!!presetDocumentType}>
                       Back
                     </Button>
-                    <Button icon={ArrowRight} onClick={() => setStep(4)}>
+                    <Button icon={ArrowRight} onClick={() => setStep(4)} disabled={checklist.some(item => item.required && !item.isVerified && !files[item.type])}>
                       Next
                     </Button>
                   </div>
@@ -612,25 +602,40 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
                   </p>
 
                   <div className="border border-slate-200 dark:border-slate-800/60 rounded-xl p-4 bg-slate-50/50 dark:bg-slate-900/30 text-xs space-y-3.5">
-                    <div className="grid grid-cols-[1.2fr_2fr] gap-2 border-b border-slate-200 dark:border-slate-800/50 pb-2">
-                      <span className="text-slate-500 dark:text-slate-450 font-bold uppercase tracking-wider text-[9px]">Organization</span>
-                      <span className="text-slate-950 dark:text-white font-extrabold">{selectedOrg?.name}</span>
-                    </div>
-                    <div className="grid grid-cols-[1.2fr_2fr] gap-2 border-b border-slate-200 dark:border-slate-800/50 pb-2">
-                      <span className="text-slate-500 dark:text-slate-450 font-bold uppercase tracking-wider text-[9px]">Service Request</span>
-                      <span className="text-slate-950 dark:text-white font-extrabold">{selectedService?.name}</span>
-                    </div>
-                    <div className="grid grid-cols-[1.2fr_2fr] gap-2 border-b border-slate-200 dark:border-slate-800/50 pb-2">
-                      <span className="text-slate-500 dark:text-slate-450 font-bold uppercase tracking-wider text-[9px]">Checklist Items</span>
-                      <div className="space-y-1">
-                        {checklist.map((item, idx) => (
-                          <div key={idx} className="flex items-center gap-1.5 text-[10px] font-bold">
-                            <span>{item.isVerified ? '✔' : files[item.type] ? '⬆' : '⬜'}</span>
-                            <span>{item.type}</span>
+                    {presetDocumentType ? (
+                      <>
+                        <div className="grid grid-cols-[1.2fr_2fr] gap-2 border-b border-slate-200 dark:border-slate-800/50 pb-2">
+                          <span className="text-slate-500 dark:text-slate-450 font-bold uppercase tracking-wider text-[9px]">Document Category</span>
+                          <span className="text-slate-950 dark:text-white font-extrabold">{presetDocumentType}</span>
+                        </div>
+                        <div className="grid grid-cols-[1.2fr_2fr] gap-2 border-b border-slate-200 dark:border-slate-800/50 pb-2">
+                          <span className="text-slate-500 dark:text-slate-450 font-bold uppercase tracking-wider text-[9px]">File Name</span>
+                          <span className="text-slate-950 dark:text-white font-extrabold">{files[presetDocumentType]?.name}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-[1.2fr_2fr] gap-2 border-b border-slate-200 dark:border-slate-800/50 pb-2">
+                          <span className="text-slate-500 dark:text-slate-450 font-bold uppercase tracking-wider text-[9px]">Organization</span>
+                          <span className="text-slate-950 dark:text-white font-extrabold">{selectedOrg?.name}</span>
+                        </div>
+                        <div className="grid grid-cols-[1.2fr_2fr] gap-2 border-b border-slate-200 dark:border-slate-800/50 pb-2">
+                          <span className="text-slate-500 dark:text-slate-450 font-bold uppercase tracking-wider text-[9px]">Service Request</span>
+                          <span className="text-slate-950 dark:text-white font-extrabold">{selectedService?.name}</span>
+                        </div>
+                        <div className="grid grid-cols-[1.2fr_2fr] gap-2 border-b border-slate-200 dark:border-slate-800/50 pb-2">
+                          <span className="text-slate-500 dark:text-slate-450 font-bold uppercase tracking-wider text-[9px]">Checklist Items</span>
+                          <div className="space-y-1">
+                            {checklist.map((item, idx) => (
+                              <div key={idx} className="flex items-center gap-1.5 text-[10px] font-bold">
+                                <span>{item.isVerified ? '✔' : files[item.type] ? '⬆' : '⬜'}</span>
+                                <span>{item.type}</span>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    </div>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* Consent Checkbox */}
@@ -671,20 +676,31 @@ export default function UploadDocumentModal({ isOpen, onClose, targetRequest, in
                   </div>
                   
                   <div className="space-y-4 max-w-sm mx-auto">
-                    <div className="flex flex-col items-center gap-1.5 border border-slate-200 dark:border-slate-800/60 rounded-xl p-4 bg-slate-50/50 dark:bg-slate-900/30 relative">
-                      <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 dark:text-emerald-400">
-                        <CheckCircle2 className="h-4 w-4 shrink-0" />
-                        <span>✔ Checklist Verification Started</span>
+                    {presetDocumentType ? (
+                      <div className="flex flex-col items-center gap-1.5 border border-slate-200 dark:border-slate-800/60 rounded-xl p-4 bg-slate-50/50 dark:bg-slate-900/30 relative">
+                        <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                          <CheckCircle2 className="h-4 w-4 shrink-0" />
+                          <span>✔ {presetDocumentType} Uploaded</span>
+                        </div>
                       </div>
-                      <div className="w-0.5 bg-slate-300 dark:bg-slate-800 h-4 border-l border-dashed border-slate-400 dark:border-slate-650 my-1" />
-                      <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-slate-200">
-                        <span>📨 Routed To</span>
-                        <strong className="text-blue-600 dark:text-blue-400 font-extrabold">{selectedOrg?.name}</strong>
+                    ) : (
+                      <div className="flex flex-col items-center gap-1.5 border border-slate-200 dark:border-slate-800/60 rounded-xl p-4 bg-slate-50/50 dark:bg-slate-900/30 relative">
+                        <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                          <CheckCircle2 className="h-4 w-4 shrink-0" />
+                          <span>✔ Checklist Verification Started</span>
+                        </div>
+                        <div className="w-0.5 bg-slate-300 dark:bg-slate-800 h-4 border-l border-dashed border-slate-400 dark:border-slate-650 my-1" />
+                        <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-slate-200">
+                          <span>📨 Routed To</span>
+                          <strong className="text-blue-600 dark:text-blue-400 font-extrabold">{selectedOrg?.name}</strong>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     <p className="text-xs text-slate-550 dark:text-slate-400 font-semibold leading-relaxed">
-                      Verification requests have been successfully routed to the organization reviews pipeline. Check your dashboard for real-time status telemetry.
+                      {presetDocumentType
+                        ? `Your ${presetDocumentType} has been successfully uploaded and stored securely in your Credential Vault.`
+                        : 'Verification requests have been successfully routed to the organization reviews pipeline. Check your dashboard for real-time status telemetry.'}
                     </p>
 
                     <Button onClick={handleClose} variant="primary" className="mx-auto mt-4 px-6 justify-center">

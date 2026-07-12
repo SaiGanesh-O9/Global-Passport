@@ -8,8 +8,12 @@ import ThemeToggle from '../ui/ThemeToggle.jsx';
 import Avatar from '../ui/Avatar.jsx';
 import Breadcrumbs from '../ui/Breadcrumbs.jsx';
 import GlobalSearch from '../organizations/GlobalSearch.jsx';
+import AICopilot from '../ui/AICopilot.jsx';
+import WorkspacePanel from '../../workspace/WorkspacePanel/WorkspacePanel.jsx';
+import ToastNotifier from '../ui/ToastNotifier.jsx';
+import CommandPalette from '../ui/CommandPalette.jsx';
 
-export default function SidebarLayout({ children, navItems, subtitle, title }) {
+export default function SidebarLayout({ children, navItems, title }) {
   const { logout, currentUser, userProfile, loginAsDeveloper, role } = useAuth();
   const { selectedRequest } = useDocuments();
   const navigate = useNavigate();
@@ -17,6 +21,15 @@ export default function SidebarLayout({ children, navItems, subtitle, title }) {
   const [notifications, setNotifications] = useState([]);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [osMode, setOsMode] = useState(() => localStorage.getItem('unicrypt_os_panel_mode') || 'expanded');
+  const [dockEnabled, setDockEnabled] = useState(() => localStorage.getItem('unicrypt_bottom_dock_navigation') !== 'false');
+
+  useEffect(() => {
+    const handleToggle = (e) => {
+      setDockEnabled(e.detail?.enabled);
+    };
+    window.addEventListener('unicrypt-bottom-dock-toggle', handleToggle);
+    return () => window.removeEventListener('unicrypt-bottom-dock-toggle', handleToggle);
+  }, []);
 
   useEffect(() => {
     const syncOsState = (event) => setOsMode(event.detail?.mode || 'expanded');
@@ -93,154 +106,156 @@ export default function SidebarLayout({ children, navItems, subtitle, title }) {
     <div className="min-h-screen bg-slate-50 dark:bg-[#090a0f] text-slate-800 dark:text-slate-200 transition-colors duration-250 flex flex-col lg:flex-row">
       
       {/* 1. Glassmorphic Sidebar */}
-      <aside className="border-b lg:border-b-0 lg:border-r border-slate-200/80 dark:border-slate-800/40 bg-white/80 dark:bg-[#12131a]/80 backdrop-blur-md px-5 py-6 lg:w-72 shrink-0 flex flex-col justify-between transition-theme">
-        <div className="space-y-8">
-          {/* Brand header */}
-          <button
-            onClick={() => {
-              let path = '/';
-              if (role === 'super_admin') path = '/admin';
-              else if (role === 'organization') path = '/institution';
-              else if (role === 'student' || role === 'employer') path = '/dashboard';
-              navigate(path);
-            }}
-            onDoubleClick={() => window.dispatchEvent(new CustomEvent('unicrypt-toggle-search'))}
-            className="flex items-center gap-2 text-lg font-bold text-blue-600 dark:text-blue-400 hover:scale-[1.03] active:scale-[0.98] transition-all duration-150 outline-none cursor-pointer group relative text-left"
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-500/20 shrink-0">
-              <FileCheck2 className="h-5 w-5" />
-            </span>
-            <span className="tracking-tight font-extrabold text-slate-900 dark:text-white">UniCrypt</span>
-            
-            {/* Tooltip */}
-            <span className="absolute left-1/2 -translate-x-1/2 top-full mt-2 scale-90 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-150 bg-slate-900 dark:bg-slate-800 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-lg pointer-events-none whitespace-nowrap z-50">
-              Go to Home
-            </span>
-          </button>
-
-          {/* Active Request Selection Preview */}
-          {selectedRequest && (
-            <div className="border border-blue-500/20 bg-blue-500/5 dark:bg-blue-500/5 rounded-xl p-3.5 space-y-2 animate-slide-in transition-all duration-300">
-              <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">Selected Request</span>
-              <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{selectedRequest.credentialType}</p>
-              <p className="text-[10px] text-slate-500 dark:text-slate-450 font-semibold truncate leading-none mt-0.5">
-                {selectedRequest.organization?.name || selectedRequest.requestedOrganization}
-              </p>
-              <span className="inline-block mt-1 px-1.5 py-0.5 text-[9px] font-bold uppercase rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/10">
-                {selectedRequest.status}
-              </span>
-            </div>
-          )}
-
-          {/* Navigation links */}
-          <nav className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-1">
-            {navItems.map((item) => {
-              const currentHash = (window.location.hash || '#dashboard').replace('#', '');
-              const targetHash = (item.to.split('#')[1] || 'dashboard');
-              const isLinkActive = currentHash.split('?')[0] === targetHash;
-
-              return (
-                <NavLink
-                  className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-bold transition-all duration-150 active:scale-[0.98] ${
-                    isLinkActive
-                      ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                      : 'text-slate-550 dark:text-slate-400 hover:bg-slate-100/60 dark:hover:bg-slate-800/20 hover:text-slate-850 dark:hover:text-slate-200'
-                  }`}
-                  key={item.label}
-                  to={item.to}
-                >
-                  <item.icon className="h-4.5 w-4.5 text-current shrink-0" />
-                  {item.label}
-                </NavLink>
-              );
-            })}
+      {!dockEnabled && (
+        <aside className="border-b lg:border-b-0 lg:border-r border-slate-200/80 dark:border-slate-800/40 bg-white/80 dark:bg-[#12131a]/80 backdrop-blur-md px-5 py-6 lg:w-72 shrink-0 flex flex-col justify-between transition-theme">
+          <div className="space-y-8">
+            {/* Brand header */}
             <button
-              className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-xs font-bold text-blue-600 transition-all duration-150 hover:bg-blue-500/10 dark:text-blue-400"
-              onClick={cycleOsPanel}
-              type="button"
+              onClick={() => {
+                let path = '/';
+                if (role === 'super_admin') path = '/admin';
+                else if (role === 'organization') path = '/institution';
+                else if (role === 'student' || role === 'employer') path = '/dashboard';
+                navigate(path);
+              }}
+              onDoubleClick={() => window.dispatchEvent(new CustomEvent('unicrypt-toggle-search'))}
+              className="flex items-center gap-2 text-lg font-bold text-blue-600 dark:text-blue-400 hover:scale-[1.03] active:scale-[0.98] transition-all duration-150 outline-none cursor-pointer group relative text-left"
             >
-              <Bot className="h-4.5 w-4.5 shrink-0" />
-              <span>UniCrypt OS</span>
-              <span className="ml-auto text-[8px] uppercase tracking-wider text-slate-400">{osMode}</span>
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-500/20 shrink-0">
+                <FileCheck2 className="h-5 w-5" />
+              </span>
+              <span className="tracking-tight font-extrabold text-slate-900 dark:text-white">UniCrypt</span>
+              
+              {/* Tooltip */}
+              <span className="absolute left-1/2 -translate-x-1/2 top-full mt-2 scale-90 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-150 bg-slate-900 dark:bg-slate-800 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-lg pointer-events-none whitespace-nowrap z-50">
+                Go to My Workspace
+              </span>
             </button>
-          </nav>
-        </div>
 
-        {/* Developer Console (Visible in local development environment only) */}
-        {import.meta.env.DEV && loginAsDeveloper && (
-          <div className="mt-6 border-t border-slate-200/60 dark:border-slate-800/40 pt-4 space-y-2">
-            <span className="text-[9px] font-extrabold text-amber-600 dark:text-amber-500 uppercase tracking-wide block">🛠 Dev Switcher</span>
-            <div className="grid grid-cols-3 gap-1">
-              <button
-                onClick={async () => {
-                  try {
-                    await loginAsDeveloper('user');
-                    navigate('/dashboard');
-                  } catch (e) {
-                    console.error("Dev switch to user failed:", e);
-                  }
-                }}
-                className="px-1.5 py-1 text-[9px] font-extrabold uppercase rounded bg-slate-100 dark:bg-slate-800 text-slate-650 dark:text-slate-350 border border-slate-200/55 dark:border-slate-700/50 hover:bg-slate-200/60 dark:hover:bg-slate-700/80 active:scale-[0.96] transition-all duration-100 cursor-pointer text-center"
-              >
-                User
-              </button>
-              <button
-                onClick={async () => {
-                  try {
-                    await loginAsDeveloper('organization');
-                    navigate('/dashboard');
-                  } catch (e) {
-                    console.error("Dev switch to organization failed:", e);
-                  }
-                }}
-                className="px-1.5 py-1 text-[9px] font-extrabold uppercase rounded bg-slate-100 dark:bg-slate-800 text-slate-650 dark:text-slate-350 border border-slate-200/55 dark:border-slate-700/50 hover:bg-slate-200/60 dark:hover:bg-slate-700/80 active:scale-[0.96] transition-all duration-100 cursor-pointer text-center"
-              >
-                Verifier
-              </button>
-              <button
-                onClick={async () => {
-                  try {
-                    await loginAsDeveloper('super_admin');
-                    navigate('/dashboard');
-                  } catch (e) {
-                    console.error("Dev switch to admin failed:", e);
-                  }
-                }}
-                className="px-1.5 py-1 text-[9px] font-extrabold uppercase rounded bg-slate-100 dark:bg-slate-800 text-slate-650 dark:text-slate-350 border border-slate-200/55 dark:border-slate-700/50 hover:bg-slate-200/60 dark:hover:bg-slate-700/80 active:scale-[0.96] transition-all duration-100 cursor-pointer text-center"
-              >
-                Admin
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Footer profile indicator */}
-        <div className="mt-8 border-t border-slate-200/60 dark:border-slate-800/40 pt-6 space-y-4">
-          {currentUser && (
-            <div className="flex items-center gap-3">
-              <Avatar name={userProfile?.name || currentUser.displayName || currentUser.email} size="md" />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                  {userProfile?.name || currentUser.displayName || 'UniCrypt User'}
+            {/* Active Request Selection Preview */}
+            {selectedRequest && (
+              <div className="border border-blue-500/20 bg-blue-500/5 dark:bg-blue-500/5 rounded-xl p-3.5 space-y-2 animate-slide-in transition-all duration-300">
+                <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">Selected Request</span>
+                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{selectedRequest.credentialType}</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-455 font-semibold truncate leading-none mt-0.5">
+                  {selectedRequest.organization?.name || selectedRequest.requestedOrganization}
                 </p>
-                <p className="text-[10px] text-slate-450 dark:text-slate-500 font-semibold truncate leading-none mt-0.5">
-                  {currentUser.email}
-                </p>
-                <span className="inline-block mt-1.5 px-1.5 py-0.5 text-[9px] font-extrabold tracking-wide uppercase rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200/50 dark:border-slate-700/50">
-                  {userProfile?.role === 'student' ? 'User' : userProfile?.role?.replace('_', ' ') || 'Guest'}
+                <span className="inline-block mt-1 px-1.5 py-0.5 text-[9px] font-bold uppercase rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/10">
+                  {selectedRequest.status}
                 </span>
+              </div>
+            )}
+
+            {/* Navigation links */}
+            <nav className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-1">
+              {navItems.map((item) => {
+                const currentHash = (window.location.hash || '#dashboard').replace('#', '');
+                const targetHash = (item.to.split('#')[1] || 'dashboard');
+                const isLinkActive = currentHash.split('?')[0] === targetHash;
+
+                return (
+                  <NavLink
+                    className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-bold transition-all duration-150 active:scale-[0.98] ${
+                      isLinkActive
+                        ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                        : 'text-slate-550 dark:text-slate-400 hover:bg-slate-100/60 dark:hover:bg-slate-800/20 hover:text-slate-850 dark:hover:text-slate-200'
+                    }`}
+                    key={item.label}
+                    to={item.to}
+                  >
+                    <item.icon className="h-4.5 w-4.5 text-current shrink-0" />
+                    {item.label}
+                  </NavLink>
+                );
+              })}
+              <button
+                className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-xs font-bold text-blue-600 transition-all duration-150 hover:bg-blue-500/10 dark:text-blue-400"
+                onClick={cycleOsPanel}
+                type="button"
+              >
+                <Bot className="h-4.5 w-4.5 shrink-0" />
+                <span>UniCrypt OS</span>
+                <span className="ml-auto text-[8px] uppercase tracking-wider text-slate-400">{osMode}</span>
+              </button>
+            </nav>
+          </div>
+
+          {/* Developer Console (Visible in local development environment only) */}
+          {import.meta.env.DEV && loginAsDeveloper && (
+            <div className="mt-6 border-t border-slate-200/60 dark:border-slate-800/40 pt-4 space-y-2">
+              <span className="text-[9px] font-extrabold text-amber-600 dark:text-amber-500 uppercase tracking-wide block">🛠 Dev Switcher</span>
+              <div className="grid grid-cols-3 gap-1">
+                <button
+                  onClick={async () => {
+                    try {
+                      await loginAsDeveloper('user');
+                      navigate('/dashboard');
+                    } catch (e) {
+                      console.error("Dev switch to user failed:", e);
+                    }
+                  }}
+                  className="px-1.5 py-1 text-[9px] font-extrabold uppercase rounded bg-slate-100 dark:bg-slate-800 text-slate-650 dark:text-slate-350 border border-slate-200/55 dark:border-slate-700/50 hover:bg-slate-200/60 dark:hover:bg-slate-700/80 active:scale-[0.96] transition-all duration-100 cursor-pointer text-center"
+                >
+                  User
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      await loginAsDeveloper('organization');
+                      navigate('/dashboard');
+                    } catch (e) {
+                      console.error("Dev switch to organization failed:", e);
+                    }
+                  }}
+                  className="px-1.5 py-1 text-[9px] font-extrabold uppercase rounded bg-slate-100 dark:bg-slate-800 text-slate-650 dark:text-slate-350 border border-slate-200/55 dark:border-slate-700/50 hover:bg-slate-200/60 dark:hover:bg-slate-700/80 active:scale-[0.96] transition-all duration-100 cursor-pointer text-center"
+                >
+                  Verifier
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      await loginAsDeveloper('super_admin');
+                      navigate('/dashboard');
+                    } catch (e) {
+                      console.error("Dev switch to admin failed:", e);
+                    }
+                  }}
+                  className="px-1.5 py-1 text-[9px] font-extrabold uppercase rounded bg-slate-100 dark:bg-slate-800 text-slate-650 dark:text-slate-350 border border-slate-200/55 dark:border-slate-700/50 hover:bg-slate-200/60 dark:hover:bg-slate-700/80 active:scale-[0.96] transition-all duration-100 cursor-pointer text-center"
+                >
+                  Admin
+                </button>
               </div>
             </div>
           )}
-          
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-bold text-rose-600 bg-rose-500/5 dark:bg-rose-500/10 hover:bg-rose-500/10 dark:hover:bg-rose-500/15 border border-rose-500/10 active:scale-[0.98] transition-all duration-150 cursor-pointer text-left"
-          >
-            Sign Out
-          </button>
-        </div>
-      </aside>
+
+          {/* Footer profile indicator */}
+          <div className="mt-8 border-t border-slate-200/60 dark:border-slate-800/40 pt-6 space-y-4">
+            {currentUser && (
+              <div className="flex items-center gap-3">
+                <Avatar name={userProfile?.name || currentUser.displayName || currentUser.email} size="md" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                    {userProfile?.name || currentUser.displayName || 'UniCrypt User'}
+                  </p>
+                  <p className="text-[10px] text-slate-450 dark:text-slate-500 font-semibold truncate leading-none mt-0.5">
+                    {currentUser.email}
+                  </p>
+                  <span className="inline-block mt-1.5 px-1.5 py-0.5 text-[9px] font-extrabold tracking-wide uppercase rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200/50 dark:border-slate-700/50">
+                    {userProfile?.role === 'student' ? 'User' : userProfile?.role?.replace('_', ' ') || 'Guest'}
+                  </span>
+                </div>
+              </div>
+            )}
+            
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-bold text-rose-600 bg-rose-500/5 dark:bg-rose-500/10 hover:bg-rose-500/10 dark:hover:bg-rose-500/15 border border-rose-500/10 active:scale-[0.98] transition-all duration-150 cursor-pointer text-left"
+            >
+              Sign Out
+            </button>
+          </div>
+        </aside>
+      )}
 
       {/* Main Container */}
       <div className="unicrypt-os-workspace flex-1 flex flex-col min-w-0">
@@ -371,6 +386,10 @@ export default function SidebarLayout({ children, navItems, subtitle, title }) {
           {children}
         </main>
       </div>
+      <AICopilot />
+      <WorkspacePanel />
+      <ToastNotifier />
+      <CommandPalette />
 
       {/* Local Dev badge in Main Container corner */}
       {import.meta.env.DEV && localStorage.getItem('dev_user') && (
